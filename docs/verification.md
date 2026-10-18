@@ -1,3 +1,11 @@
+# 1.0.3 optional HTTPS and terminal manager
+
+[Ubuntu lifecycle run 39178017699](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178017699) passes native HTTP installation with detected IPv4, domain/IP login, self-signed HTTPS, port migration to 8444, return to HTTP, same-version repair, update/rollback and uninstall. Accounts and master keys are preserved. The first expanded lifecycle run reached systemd's default start-rate limit after deliberately rapid transitions; independent test scenarios now reset that counter without weakening the shipped service policy.
+
+Local Go tests and vet pass. Linux Bash tests cover ACME private-IP refusal, public-IP short-lived profile, standalone/webroot arguments, changed-client hash refusal, issuance failure preservation, renewal/no-change behavior, preventing renewal from overwriting HTTP, failed TLS readiness rollback and terminal color/error-return behavior. Actual public CA issuance is not run: it requires an authorized public domain/IP and inbound challenge reachability. The implementation uses a pinned official acme.sh dependency; no 3x-ui source is copied.
+
+The historical 1.0.2 sections below describe its former HTTPS-only network default; 1.0.3 adds explicit network HTTP and optional ACME HTTPS. Release/public-install results will be recorded after publication.
+
 # 1.0.2 direct HTTPS and installer progress
 
 No server IP is hardcoded. The wizard detects the primary and other assigned IPv4 addresses, generates a private HTTPS certificate covering those IPs plus an optional domain, and displays its fingerprint for browser trust. Network cookies remain Secure; plaintext HTTP remains loopback-only. Existing installations use `sudo mvm access` after update, with automatic address detection and a verified backup. Installation phases and download progress are visible without logging passwords or keys.

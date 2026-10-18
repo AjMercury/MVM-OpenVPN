@@ -13,7 +13,7 @@ ui_menu() {
   protocol=${url%%://*}
  fi
  printf '\n%s+--------------------------------------------------+\n' "$cyan"
- printf '|              M I K R O T I K   V P N              |\n'
+ printf '|              M I K R O T I K   V P N             |\n'
  printf '|                 MVM Control Panel                |\n'
  printf '+--------------------------------------------------+%s\n' "$reset"
  printf '  Version  %-14s  Service  %s%s%s\n' "$version" "$green" "$state" "$reset"

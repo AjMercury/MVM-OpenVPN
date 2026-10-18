@@ -1,3 +1,9 @@
+# 1.0.1 direct HTTPS and installer progress
+
+No server IP is hardcoded. The wizard detects the primary and other assigned IPv4 addresses, generates a private HTTPS certificate covering those IPs plus an optional domain, and displays its fingerprint for browser trust. Network cookies remain Secure; plaintext HTTP remains loopback-only. Existing installations use `sudo mvm access` after update, with automatic address detection and a verified backup. Installation phases and download progress are visible without logging passwords or keys.
+
+[Quality run 39175825354](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39175825354) and [Ubuntu run 39175825499](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39175825499) pass. Tests cover multiple different server IPs, secondary interface discovery, verified non-loopback HTTPS login/logout, both configured origins, migration, recovery, unit refresh, update/rollback and secret redaction. Public stable installation of the new release is checked after publication.
+
 # 1.0 verification status (2026-10-19)
 
 Local full `go test -tags nomsgpack ./...`, `go vet` and manifest validation pass outside the Windows sandbox. Added regression coverage exercises successful repeated login, account throttling across source IPs, proxy header trust, dependency-read failure, expired reservation reuse in both storage editions, legacy session cleanup and terminal secret removal. Git Bash installer suites pass with bundled Python; Linux PTY/systemd assertions require CI.

@@ -10,6 +10,7 @@ services:
       MVM_MASTER_KEY: ${MVM_MASTER_KEY:?Set a base64 random 32-byte key}
       MVM_DATABASE: /data/mvm.db
       MVM_PROXY_TLS: "true"
+      MVM_TRUSTED_PROXIES: "172.30.248.3"
       MVM_ORIGIN: ${MVM_ORIGIN:-https://localhost:8443}
       MVM_ROUTER_CIDRS: ${MVM_ROUTER_CIDRS:-}
       MVM_ALLOW_MUTATIONS: ${MVM_ALLOW_MUTATIONS:-false}
@@ -25,7 +26,9 @@ services:
     cpus: 2
     pids_limit: 64
     restart: unless-stopped
-    networks: [management]
+    networks:
+      management:
+        ipv4_address: 172.30.248.2
     logging:
       driver: json-file
       options:
@@ -47,7 +50,9 @@ services:
     security_opt: [no-new-privileges:true]
     mem_limit: 64m
     restart: unless-stopped
-    networks: [management]
+    networks:
+      management:
+        ipv4_address: 172.30.248.3
     depends_on:
       manager:
         condition: service_healthy
@@ -55,7 +60,10 @@ services:
       driver: json-file
       options: {max-size: 10m, max-file: "3"}
 networks:
-  management: {}
+  management:
+    ipam:
+      config:
+        - subnet: 172.30.248.0/24
 volumes:
   caddy-data: {}
   caddy-config: {}

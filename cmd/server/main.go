@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-var version = "0.2.0-dev"
+var version = "1.0.0-dev"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -32,12 +32,13 @@ func run(logger *slog.Logger) error {
 	if e != nil {
 		return e
 	}
+	c.Version = version
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		origin, e := url.Parse(c.Origin)
 		if e != nil {
 			return e
 		}
-		_, port, e := net.SplitHostPort(c.Address)
+		host, port, e := net.SplitHostPort(c.Address)
 		if e != nil {
 			return e
 		}
@@ -46,7 +47,12 @@ func run(logger *slog.Logger) error {
 			scheme = "https"
 		}
 		client := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: origin.Hostname()}}}
-		resp, e := client.Get(scheme + "://127.0.0.1:" + port + "/readyz")
+		if host == "" || host == "0.0.0.0" {
+			host = "127.0.0.1"
+		} else if host == "::" {
+			host = "::1"
+		}
+		resp, e := client.Get(scheme + "://" + net.JoinHostPort(host, port) + "/readyz")
 		if e != nil {
 			return e
 		}

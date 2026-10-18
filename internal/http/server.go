@@ -76,7 +76,7 @@ func New(s *app.Service, logger *slog.Logger) (*Server, error) {
 func (h *Server) Routes() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.SetTrustedProxies(nil)
+	_ = r.SetTrustedProxies(h.App.Config.TrustedProxies)
 	r.Use(func(c *gin.Context) {
 		defer func() {
 			if recover() != nil {
@@ -229,6 +229,7 @@ func (h *Server) render(c *gin.Context, status int, data gin.H) {
 		data["Dir"] = "rtl"
 	}
 	data["Mutations"] = h.App.Config.Mutations
+	data["Version"] = h.App.Config.Version
 	if v, ok := c.Get("session"); ok {
 		data["CSRF"] = v.(domain.Session).CSRF
 	}
@@ -246,6 +247,9 @@ func (h *Server) success(c *gin.Context, data any, page string) {
 	c.Redirect(303, page)
 }
 func (h *Server) throttled(key string) bool {
+	return h.throttledLimit(key, 5)
+}
+func (h *Server) throttledLimit(key string, limit int) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	now := time.Now()
@@ -255,7 +259,7 @@ func (h *Server) throttled(key string) bool {
 		}
 	}
 	v := h.attempts[key]
-	if v.Count >= 5 && now.Before(v.Until) {
+	if v.Count >= limit && now.Before(v.Until) {
 		return true
 	}
 	if len(h.attempts) > 10000 {
@@ -272,7 +276,7 @@ func (h *Server) login(c *gin.Context) {
 		h.fail(c, 403, errors.New("invalid login origin"))
 		return
 	}
-	if h.throttled("ip:" + c.ClientIP()) {
+	if h.throttledLimit("ip:"+c.ClientIP(), 50) {
 		h.fail(c, 429, errors.New("too many sign-in attempts; wait ten minutes"))
 		return
 	}
@@ -295,6 +299,11 @@ func (h *Server) login(c *gin.Context) {
 	} else {
 		input.Username = c.PostForm("username")
 		input.Password = c.PostForm("password")
+	}
+	accountKey := "account:" + security.Digest(strings.ToLower(input.Username))
+	if h.throttled(accountKey) {
+		h.fail(c, 429, errors.New("too many sign-in attempts; wait ten minutes"))
+		return
 	}
 	var accounts []domain.Account
 	if e := h.App.Repo.List("accounts", &accounts); e != nil {
@@ -322,6 +331,10 @@ func (h *Server) login(c *gin.Context) {
 		h.fail(c, 500, e)
 		return
 	}
+	h.mu.Lock()
+	delete(h.attempts, "ip:"+c.ClientIP())
+	delete(h.attempts, accountKey)
+	h.mu.Unlock()
 	c.SetSameSite(http.SameSiteStrictMode)
 	c.SetCookie("mvm_session", token, 8*3600, "/", "", !h.App.Config.Dev, true)
 	_ = h.App.Audit(found.ID, "auth.login", "", "success")
@@ -609,7 +622,10 @@ func (h *Server) removeRouter(c *gin.Context) {
 	unlock := h.App.Engine.Lock(id)
 	defer unlock()
 	var servers []domain.Server
-	_ = h.App.Repo.List("servers", &servers)
+	if e := h.App.Repo.List("servers", &servers); e != nil {
+		h.fail(c, 500, errors.New("cannot verify router dependencies"))
+		return
+	}
 	for _, s := range servers {
 		if s.Spec.RouterID == id {
 			h.fail(c, 409, errors.New("router has managed servers; inventory removal is blocked"))
@@ -771,14 +787,17 @@ func (h *Server) download(c *gin.Context) {
 	} else {
 		in.Token = c.PostForm("token")
 	}
+	if e := h.App.Audit(account(c).ID, "profile.download", "delivery", "requested"); e != nil {
+		h.fail(c, 500, e)
+		return
+	}
 	data, e := h.App.Consume(account(c), in.Token)
 	if e != nil {
 		h.fail(c, 403, e)
 		return
 	}
 	if e = h.App.Audit(account(c).ID, "profile.download", "delivery", "consumed"); e != nil {
-		h.fail(c, 500, e)
-		return
+		h.Log.Error("download consumed audit failed", "account", account(c).ID, "request_id", c.Writer.Header().Get("X-Request-ID"))
 	}
 	c.Header("Content-Disposition", `attachment; filename="client.ovpn"`)
 	c.Data(200, "application/x-openvpn-profile", data)

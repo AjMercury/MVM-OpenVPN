@@ -255,6 +255,22 @@ func (s *Store) List(b string, out any) error {
 	}
 	return json.Unmarshal(raw, out)
 }
+func (s *Store) RecordIDs(bucket string) ([]string, error) {
+	rows, err := s.db.Query("SELECT id FROM records WHERE collection=? ORDER BY id", bucket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
 func (s *Store) Check() error {
 	var result string
 	if e := s.db.QueryRow("PRAGMA integrity_check").Scan(&result); e != nil {

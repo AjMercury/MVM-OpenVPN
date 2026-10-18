@@ -9,12 +9,16 @@ root=$(cd -- "$(dirname -- "$0")/../.." && pwd)
 testdir=$(mktemp -d)
 trap 'rm -rf -- "$testdir"' EXIT
 openssl rand -base64 24 > "$testdir/password"
+release_tag=${MVM_TEST_RELEASE_TAG:-}
+release_channel=stable
+if [[ $release_tag == *-* || -z $release_tag ]]; then release_channel=preview; fi
 # Python keeps the password out of process arguments, environment and logs.
-python3 - "$testdir/password" <<'PY' | python3 "$root/tests/installer/terminal.py" bash -o pipefail -c \
- 'curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash -s -- --channel preview' > "$testdir/output"
+python3 - "$testdir/password" "$release_channel" <<'PY' | python3 "$root/tests/installer/terminal.py" bash -o pipefail -c \
+ 'curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash -s -- --channel "$1" ${2:+--version "$2"}' _ "$release_channel" "$release_tag" > "$testdir/output"
 import pathlib,sys
 p=pathlib.Path(sys.argv[1]).read_text().strip()
-print(f'INSTALL PREVIEW\nINSTALL PREVIEW\n8443\nlocalhost\nrelease-owner\n{p}\n{p}\nUTC\nen\nlocal')
+if sys.argv[2]=='preview': print('INSTALL PREVIEW')
+print(f'8443\nlocalhost\nrelease-owner\n{p}\n{p}\nUTC\nen\nlocal')
 PY
 grep -q 'Installation Complete' "$testdir/output"
 grep -q 'Status:       RUNNING' "$testdir/output"
@@ -33,11 +37,9 @@ systemctl is-active --quiet mvm
 runuser -u mvm -- env MVM_MASTER_KEY_FILE=/etc/mvm/master.key /opt/mvm/current/mvmctl check /var/lib/mvm/mvm.db
 version=$(sed -n 's/^VERSION=//p' /opt/mvm/current/metadata.env)
 curl -fsSL "https://github.com/AjMercury/MvM-OpenVPN/releases/download/v$version/SHA256SUMS" -o "$testdir/SHA256SUMS"
-curl -fsSL "https://github.com/AjMercury/MvM-OpenVPN/releases/download/v$version/SHA256SUMS.sigstore.json" -o "$testdir/bundle.json"
+curl -fsSL "https://github.com/AjMercury/MvM-OpenVPN/releases/download/v$version/SHA256SUMS.sigstore.json" -o "$testdir/SHA256SUMS.sigstore.json"
 verify_live_manifest() {
- gh attestation verify "$testdir/SHA256SUMS" --bundle "$testdir/bundle.json" \
-  --repo AjMercury/MVM-OpenVPN --source-ref "refs/tags/v$version" --deny-self-hosted-runners \
-  --cert-identity "https://github.com/AjMercury/MVM-OpenVPN/.github/workflows/release.yaml@refs/tags/v$version" > "$testdir/verification" 2>&1
+ ( . "$root/install.sh"; WORK="$testdir" TAG="v$version"; verify_manifest ) > "$testdir/verification" 2>&1
 }
 verify_live_manifest
 printf 'tampered\n' >> "$testdir/SHA256SUMS"

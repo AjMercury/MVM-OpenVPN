@@ -132,10 +132,21 @@ func TestJobOutcomes(t *testing.T) {
 		t.Run(v.name, func(t *testing.T) {
 			e := testEngine(t)
 			j := testJob()
+			j.Steps[0].Values["password"] = "do-not-retain"
 			f := &fakeAPI{records: map[string]routers.Record{}, failAt: v.failAt, uncertain: v.uncertain, mismatch: v.mismatch}
 			_ = e.Apply(context.Background(), f, j)
 			if j.State != v.state {
 				t.Fatalf("%s %s", j.State, j.Error)
+			}
+			var saved domain.Job
+			if err := e.Repo.Get("jobs", j.ID, &saved); err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := saved.Steps[0].Values["password"]; ok {
+				t.Fatal("terminal job retained password")
+			}
+			if v.failAt != 1 && f.puts > 0 && v.state == "COMPLETED" && f.records["ip/pool/*1"]["password"] != "do-not-retain" {
+				t.Fatal("password removed before router mutation")
 			}
 			if j.State == "ROLLED_BACK" && len(f.records) > 0 {
 				t.Fatal("rollback left resources")

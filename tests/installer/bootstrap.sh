@@ -27,11 +27,19 @@ curl(){ return 22; }
 if (fetch https://api.github.com/test "$tmp/result"); then exit 1; fi
 unset -f curl
 WORK=$tmp TAG=v0.2.0-preview.1
+# The separately pinned trust root must be obtained and checked before verification.
+printf '{}\n' > "$tmp/official-root.json"
+SIGSTORE_ROOT_SHA256=$(sha256sum "$tmp/official-root.json" | cut -d ' ' -f 1)
+fetch(){ cp "$tmp/official-root.json" "$2"; }
 gh(){ printf '%s\n' "$*" > "$tmp/gh-arguments"; return 1; }
 if (verify_manifest); then exit 1; fi
 grep -q -- '--source-ref refs/tags/v0.2.0-preview.1 --deny-self-hosted-runners' "$tmp/gh-arguments"
 grep -q -- '--cert-identity https://github.com/AjMercury/MVM-OpenVPN/.github/workflows/release.yaml@refs/tags/' "$tmp/gh-arguments"
 unset -f gh
+gh(){ return 0; }
+SIGSTORE_ROOT_SHA256=$(printf invalid | sha256sum | cut -d ' ' -f 1)
+if (verify_manifest); then echo 'Tampered trust root accepted'; exit 1; fi
+unset -f gh fetch
 ASSET=test.tar.gz
 for member in safe traversal absolute symlink duplicate control; do
  rm -rf -- "$WORK/payload"

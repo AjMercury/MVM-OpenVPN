@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var version = "0.2.0-dev"
+var version = "1.0.0-dev"
 
 func main() {
 	if e := run(); e != nil {
@@ -24,7 +24,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Println(version + " Development Preview; SQLite schema 1")
+		fmt.Println(version + "; SQLite schema 1; RouterOS automation experimental")
 		return nil
 	}
 	raw, e := os.ReadFile(os.Getenv("MVM_MASTER_KEY_FILE"))

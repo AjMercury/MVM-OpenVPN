@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	for _, path := range []string{"compose.yaml", ".github/workflows/quality.yaml", "docs/api/openapi.yaml", "editions/linux/docker/compose.yaml", ".github/workflows/linux-edition.yaml", ".github/workflows/mikrotik-edition.yaml", ".github/workflows/systemd-edition.yaml"} {
+	for _, path := range []string{"compose.yaml", ".github/workflows/quality.yaml", ".github/workflows/release.yaml", "docs/api/openapi.yaml", "editions/linux/docker/compose.yaml", ".github/workflows/linux-edition.yaml", ".github/workflows/mikrotik-edition.yaml", ".github/workflows/systemd-edition.yaml"} {
 		raw, e := os.ReadFile(path)
 		if e != nil {
 			fail(e)

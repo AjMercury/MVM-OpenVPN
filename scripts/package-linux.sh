@@ -14,7 +14,9 @@ cp -R editions/linux/installer editions/linux/systemd "$stage/editions/linux/"
 cp editions/linux/README.md "$stage/editions/linux/README.md"
 cp install.sh README.md DELIVERY.md "$stage/"
 cp -R docs "$stage/docs"
-printf 'VERSION=%s\nARCH=%s\nSCHEMA=1\nMATURITY=DevelopmentPreview\n' "$version" "$arch" > "$stage/metadata.env"
+maturity=DevelopmentPreview
+if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then maturity=Stable; fi
+printf 'VERSION=%s\nARCH=%s\nSCHEMA=1\nMATURITY=%s\n' "$version" "$arch" "$maturity" > "$stage/metadata.env"
 chmod 755 "$stage/server" "$stage/mvmctl"
 # Normalize CRLF from Windows working copies.
 find "$stage/editions" -type f -exec sed -i 's/\r$//' {} +

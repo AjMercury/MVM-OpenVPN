@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // This is explicitly a test double, never a production RouterOS transport.
@@ -221,6 +222,24 @@ func verticalSlice(t *testing.T, s *Service) {
 	}
 	if _, e = s.PrepareUser(ctx, a, UserRequest{ServerID: server.ID, Username: "bob", Password: "long user password 123", Address: "10.90.0.1", Key: "second-user-key"}); e == nil {
 		t.Fatal("out-of-pool static address")
+	}
+	preview, e := s.PrepareUser(ctx, a, UserRequest{ServerID: server.ID, Username: "bob", Password: "long user password 123", Key: "expired-preview-key"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	preview.Created = time.Now().Add(-time.Hour)
+	if e := s.Repo.Put("jobs", preview.ID, preview); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.PurgeExpired(); e != nil {
+		t.Fatal(e)
+	}
+	replacement, e := s.PrepareUser(ctx, a, UserRequest{ServerID: server.ID, Username: "bob", Password: "long user password 123", Key: "replacement-preview-key"})
+	if e != nil {
+		t.Fatal("expired preview still reserves username", e)
+	}
+	if replacement.User.Address != preview.User.Address {
+		t.Fatal("expired address still reserved")
 	}
 	m.mu.Lock()
 	m.records["ppp/active"] = []routers.Record{{".id": "*FF", "name": "alice", "service": "ovpn"}}

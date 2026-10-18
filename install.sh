@@ -5,6 +5,10 @@ set -Eeuo pipefail
 umask 077
 REPOSITORY=AjMercury/MvM-OpenVPN
 SIGNER_REPOSITORY=AjMercury/MVM-OpenVPN
+# Official Sigstore public-good root, pinned independently of application releases.
+# Refresh only after reviewing sigstore/root-signing changes and testing old/new bundles.
+SIGSTORE_ROOT_COMMIT=63528388118c1002d1221321741159da24c256af
+SIGSTORE_ROOT_SHA256=6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66
 bootstrap_die() { printf 'MVM: %s\n' "$*" >&2; exit 1; }
 fetch() {
  curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
@@ -34,6 +38,7 @@ bootstrap_dependencies() {
   [[ $answer == yes ]] || bootstrap_die 'Dependencies declined.'
   apt-get update && apt-get install -y --no-install-recommends "${packages[@]}" || bootstrap_die 'APT failed.'
  fi
+ [[ ${1:-all} != base ]] || return 0
  local help
  help=$(gh attestation verify --help 2>/dev/null) || help=
  if [[ $help != *--source-ref* || $help != *--deny-self-hosted-runners* ]]; then
@@ -58,7 +63,7 @@ bootstrap_dependencies() {
   apt-get update && apt-get install -y --no-install-recommends gh || bootstrap_die 'Signed GitHub CLI APT installation failed.'
   help=$(gh attestation verify --help) || bootstrap_die 'GitHub CLI verification unavailable.'
  fi
- for flag in --bundle --source-ref --cert-identity --deny-self-hosted-runners; do
+ for flag in --bundle --source-ref --cert-identity --deny-self-hosted-runners --custom-trusted-root; do
   [[ $help == *"$flag"* ]] || bootstrap_die "Installed gh lacks $flag; see docs/operations/releases.md."
  done
 }
@@ -84,11 +89,20 @@ print(max(eligible,key=lambda r:r.get('published_at') or '')['tag_name'])
 PY
 }
 verify_manifest() {
- # Untrusted bundle; trust roots come independently from gh/Sigstore, never the release.
+ # Fetch the independently pinned official root via GitHub, avoiding blocked TUF CDNs.
+ fetch "https://raw.githubusercontent.com/sigstore/root-signing/$SIGSTORE_ROOT_COMMIT/targets/trusted_root.json" "$WORK/trusted-root.json"
+ printf '%s  %s\n' "$SIGSTORE_ROOT_SHA256" "$WORK/trusted-root.json" | sha256sum --check --status \
+  || bootstrap_die 'Official Sigstore trust root checksum mismatch. No archive executed.'
+ python3 - "$WORK/trusted-root.json" "$WORK/trusted-root.jsonl" <<'PY'
+import json,sys
+with open(sys.argv[1]) as source: root=json.load(source)
+with open(sys.argv[2],'w') as output: output.write(json.dumps(root,separators=(',',':'))+'\n')
+PY
  gh attestation verify "$WORK/SHA256SUMS" --bundle "$WORK/SHA256SUMS.sigstore.json" \
+  --custom-trusted-root "$WORK/trusted-root.jsonl" \
   --repo "$SIGNER_REPOSITORY" --cert-identity "https://github.com/$SIGNER_REPOSITORY/.github/workflows/release.yaml@refs/tags/$TAG" \
   --source-ref "refs/tags/$TAG" --deny-self-hosted-runners >"$WORK/verification.log" 2>&1 \
-  || bootstrap_die 'Release attestation verification failed. No archive executed.'
+  || { cat "$WORK/verification.log" >&2; bootstrap_die 'Release attestation verification failed. No archive executed.'; }
 }
 extract_payload() {
  python3 - "$WORK/$ASSET" "$WORK/payload" <<'PY'
@@ -137,7 +151,7 @@ bootstrap_main() {
    [[ ! -e $path && ! -L $path ]] || bootstrap_die 'Existing/incomplete installation detected. Use sudo mvm Update or Install / Repair; data retained.'
   done
  fi
- bootstrap_dependencies
+ bootstrap_dependencies base
  WORK=$(mktemp -d /var/tmp/mvm-bootstrap-XXXXXXXX)
  trap bootstrap_cleanup EXIT
  if [[ -n $PIN ]]; then
@@ -145,13 +159,14 @@ bootstrap_main() {
  else
   fetch "https://api.github.com/repos/$REPOSITORY/releases?per_page=100" "$WORK/releases.json"
  fi
- TAG=$(select_release "$WORK/releases.json") || bootstrap_die 'No eligible Release. Never substitute an unverified source build.'
+ TAG=$(select_release "$WORK/releases.json") || bootstrap_die "No eligible $CHANNEL release for $ARCH. For Development Preview use: bash -s -- --channel preview. No installation performed."
  VERSION=${TAG#v}; ASSET="mvm-linux-$ARCH-$VERSION.tar.gz"
  if [[ $CHANNEL == preview ]]; then
   printf 'WARNING: Development Preview %s. Production deployment is not recommended.\n' "$VERSION"
   read -r -p 'Type INSTALL PREVIEW to continue: ' answer
   [[ $answer == 'INSTALL PREVIEW' ]] || bootstrap_die 'Preview declined.'
  fi
+ bootstrap_dependencies
  local url="https://github.com/$REPOSITORY/releases/download/$TAG" digest
  fetch "$url/SHA256SUMS" "$WORK/SHA256SUMS"
  fetch "$url/SHA256SUMS.sigstore.json" "$WORK/SHA256SUMS.sigstore.json"
@@ -169,9 +184,10 @@ PY
  extract_payload || bootstrap_die 'Unsafe or corrupt archive.'
  grep -qx "VERSION=$VERSION" "$WORK/payload/metadata.env" || bootstrap_die 'Version mismatch.'
  grep -qx "ARCH=$ARCH" "$WORK/payload/metadata.env" || bootstrap_die 'Architecture mismatch.'
- # Current source is Development Preview; stable publication is deliberately gated.
- grep -qx 'MATURITY=DevelopmentPreview' "$WORK/payload/metadata.env" || bootstrap_die 'Unknown release maturity.'
- [[ $CHANNEL == preview ]] || bootstrap_die 'Development Preview cannot be installed as stable.'
+ local maturity=Stable
+ [[ $CHANNEL != preview ]] || maturity=DevelopmentPreview
+ grep -qx "MATURITY=$maturity" "$WORK/payload/metadata.env" || bootstrap_die 'Release maturity does not match selected channel.'
+ if [[ $CHANNEL == preview ]]; then export MVM_ACCEPT_PREVIEW='I ACCEPT DEVELOPMENT PREVIEW'; fi
  bash "$WORK/payload/editions/linux/installer/menu.sh" "$ACTION" "$WORK/$ASSET" "$digest" "$VERSION"
 }
 # Redirect only the function, leaving the pipe available to Bash's script parser.

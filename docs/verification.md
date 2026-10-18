@@ -1,3 +1,10 @@
+# 1.0 verification status (2026-10-19)
+
+Local full `go test -tags nomsgpack ./...`, `go vet` and manifest validation pass outside the Windows sandbox. Added regression coverage exercises successful repeated login, account throttling across source IPs, proxy header trust, dependency-read failure, expired reservation reuse in both storage editions, legacy session cleanup and terminal secret removal. Git Bash installer suites pass with bundled Python; Linux PTY/systemd assertions require CI.
+
+The pinned official root successfully verified the real preview.3 bundle without the blocked TUF CDN. The installer test rejects an altered trust root; public installation tests verify authentic and tampered manifests. The release workflow additionally gates stable publication on Go vulnerability scans and native stable Ubuntu lifecycle. Execution links will be added after completion. This is not real RouterOS/VPN interoperability certification.
+
+The sections below describe historical preview evidence; current release status supersedes historical availability and scanner limitations.
 # Authenticated Linux release verification — 2026-10-19
 
 [v0.2.0-preview.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.3) is published. [Release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251) passed both architecture builds, Linux Bash/Go tests, actual Ubuntu 24.04 amd64 systemd/SQLite administrator installation, same-version repair, update/rollback, key preservation, and standard uninstall. The separate public-install job passed the actual raw GitHub piped command without GitHub credentials, normal login, disabled browser setup, transcript redaction, valid attestation acceptance and real signed-manifest tamper rejection. See [detailed evidence and unresolved tests](operations/releases.md). No stable/production or RouterOS/VPN interoperability certification is claimed.

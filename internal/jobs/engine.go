@@ -23,6 +23,11 @@ func (e *Engine) Lock(router string) func() {
 	return m.(*sync.Mutex).Unlock
 }
 func (e *Engine) Save(j *domain.Job) error {
+	if j.State == "COMPLETED" || j.State == "ROLLED_BACK" || j.State == "FAILED" || j.State == "EXPIRED" || j.State == "MANUAL_INTERVENTION" {
+		for i := range j.Steps {
+			delete(j.Steps[i].Values, "password")
+		}
+	}
 	j.Updated = time.Now().UTC()
 	return e.Repo.Put("jobs", j.ID, j)
 }

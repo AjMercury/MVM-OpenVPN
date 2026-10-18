@@ -1,6 +1,6 @@
 # Release limitations and incomplete acceptance criteria
 
-This is a functional application implementation and mock-tested OpenVPN automation preview, **not the completed production MVP**. The following distinctions are intentional and visible in the UI. No real router has been connected or modified.
+The 1.0 release stabilizes the native Linux manager. OpenVPN automation remains mock-tested and experimental, **not the completed production VPN MVP**. The following distinctions are intentional and visible in the UI. No real router has been connected or modified.
 
 ## External validation blockers
 
@@ -34,6 +34,6 @@ A profile token is consumed before streaming, so an interrupted browser download
 
 An encrypted private key is transiently decrypted for certificate association, with bounded PBKDF2/scrypt parameters. Formats outside that parser policy fail closed. Passphrases and decrypted keys are not persisted, but complete in-memory erasure is not guaranteed by Go. Keep the host and PKI recovery path secure.
 
-## Two-edition acceptance still requiring execution
+## Remaining edition acceptance
 
-Native systemd service sandbox/lifecycle and full install/update/uninstall on Debian/Ubuntu have not been executed locally. The guarded disposable-host test and manual CI jobs are supplied, not passed results. Installer menu/preflight/archive and mocked update/rollback tests are narrower evidence. Fresh-service failure, TLS changes, credential recovery, repair, purge and restore need full disposable-host validation. Automatic cross-schema downgrade is deliberately refused; only schema 1 is shipped. There is no official published release/feed or signed distribution channel configured. Trusted checksum custody is required for local/HTTPS archives. Driver license/vulnerability/performance review and external security review remain outstanding. SQLite's one-connection/single-instance policy preserves existing semantics; no cross-record transaction API or multi-instance coordination is claimed. Timezone/language setup preferences are persisted; existing timestamp presentation still uses UTC.
+Ubuntu 24.04 amd64 preview lifecycle evidence exists; 1.0 stable lifecycle and publication evidence is recorded in docs/verification.md. Debian, Ubuntu 22.04, arm64 runtime, remote trusted TLS/firewall behavior, MikroTik Container runtime and real router/client VPN acceptance need separate validation. Full Go tests/vet pass locally outside sandbox; release CI must pass vulnerability checks and native lifecycle before publication. Schema 1 is unchanged. SQLite uses one connection per store; single-instance deployment is required. Timezone/language preferences persist, but timestamp rendering remains UTC. Driver license/performance review, immutable external audit and external security review remain outstanding.

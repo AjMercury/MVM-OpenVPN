@@ -7,6 +7,13 @@ CONF=/etc/mvm
 DATA=/var/lib/mvm
 BACKUPS=/var/backups/mvm
 WARNING='WARNING: This application is currently a Development Preview. Real RouterOS and VPN client interoperability testing is incomplete. Production deployment is not recommended.'
+RELEASE_CHANNEL=preview
+RELEASE_LABEL='Development Preview'
+if [[ -f $(dirname -- "${BASH_SOURCE[0]}")/../../../metadata.env ]] && grep -qx 'MATURITY=Stable' "$(dirname -- "${BASH_SOURCE[0]}")/../../../metadata.env"; then
+ RELEASE_CHANNEL=stable
+ RELEASE_LABEL='Stable Linux Manager'
+ WARNING='Stable Linux manager. RouterOS VPN automation remains experimental and disabled by default; live router and VPN client validation is pending.'
+fi
 die() { printf '%s\n' "$*" >&2; exit 1; }
 root() { [[ $EUID == 0 ]] || die 'Run with sudo.'; }
 installation_state() {
@@ -72,6 +79,12 @@ ready() {
  return 1
 }
 preview_confirm() {
+ local release_metadata
+ release_metadata="$(dirname -- "${BASH_SOURCE[0]}")/../../../metadata.env"
+ if [[ -f $release_metadata ]] && grep -qx 'MATURITY=Stable' "$release_metadata"; then
+  printf '%s\n' 'MVM stable Linux manager. RouterOS VPN automation remains experimental; review compatibility and back up the router before enabling writes.'
+  return
+ fi
  printf '%s\n' "$WARNING"
  if [[ ${MVM_ACCEPT_PREVIEW:-} == 'I ACCEPT DEVELOPMENT PREVIEW' ]]; then return; fi
  local answer

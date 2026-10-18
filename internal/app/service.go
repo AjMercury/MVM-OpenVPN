@@ -197,7 +197,7 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 		}
 	}
 	for _, j := range allJobs {
-		if j.RouterID == r.ID && j.User != nil && j.State != "ROLLED_BACK" {
+		if j.RouterID == r.ID && j.User != nil && j.State != "ROLLED_BACK" && j.State != "EXPIRED" {
 			used[j.User.Address] = true
 			if j.User.Username == in.Username {
 				return nil, errors.New("username reserved by another job")

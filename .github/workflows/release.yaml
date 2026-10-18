@@ -17,13 +17,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-      - name: Validate preview tag (stable promotion requires separate reviewed maturity change)
+          go-version: 1.27.2
+      - name: Validate stable or preview version
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(dev|preview|rc)\.[0-9]+$ ]]
+          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(dev|preview|rc)\.[0-9]+)?$ ]]
+      - run: go vet -tags nomsgpack ./...
       - run: go test -tags nomsgpack ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -tags nomsgpack ./...
       - run: bash tests/installer/run.sh
       - name: Package Linux
         env:
@@ -41,8 +43,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/disposable-vm.sh
+          go-version: 1.27.2
+      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES MVM_LIFECYCLE_VERSION=1.0.0 MVM_LIFECYCLE_NEXT_VERSION=1.0.1 bash tests/systemd/disposable-vm.sh
   publish:
     needs: [build, lifecycle]
     runs-on: ubuntu-24.04
@@ -66,7 +68,7 @@ jobs:
         id: attest
         with:
           subject-path: release/SHA256SUMS
-      - name: Publish authenticated Development Preview
+      - name: Publish authenticated release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -76,13 +78,14 @@ jobs:
           gh attestation verify release/SHA256SUMS --bundle release/SHA256SUMS.sigstore.json \
             --repo "$GITHUB_REPOSITORY" --source-ref "$GITHUB_REF" --deny-self-hosted-runners \
             --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yaml@$GITHUB_REF"
-          gh release create "$TAG" release/* --verify-tag --prerelease \
-            --title "$TAG — Development Preview" \
-            --notes 'Development Preview. Production deployment is not recommended. See README and SBOMs. Native systemd lifecycle gate covers Ubuntu 24.04 amd64 only; other implementation targets require runtime testing.'
+          flags=()
+          if [[ $TAG == *-* ]]; then flags+=(--prerelease); else flags+=(--latest); fi
+          gh release create "$TAG" release/* --verify-tag "${flags[@]}" \
+            --title "$TAG — MikroTik VPN Manager" --notes-file docs/releases/1.0.0.md
   public-install:
     needs: publish
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Verify the actual public one-line command without GitHub credentials
-        run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/public-release.sh
+        run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES MVM_TEST_RELEASE_TAG="${{ github.ref_name }}" bash tests/systemd/public-release.sh

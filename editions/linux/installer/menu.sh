@@ -14,7 +14,7 @@ command_run() {
  case $command in
  install|repair|update)
   if [[ $# == 0 ]]; then
-   bash "$SCRIPT_DIR/../../../install.sh" --channel preview --action "$command"
+   bash "$SCRIPT_DIR/../../../install.sh" --channel "$RELEASE_CHANNEL" --action "$command"
   elif [[ $command == install ]]; then install_panel "$@";
   elif [[ $command == repair ]]; then repair_panel "$@";
   else update_panel "$@"; fi;;
@@ -81,7 +81,7 @@ command_run() {
 }
 if [[ $# -gt 0 ]]; then command_run "$@"; exit; fi
 while true; do
- printf '\n========================================\n MikroTik VPN Manager\n Installation & Management\n Development Preview\n========================================\n%s\n' "$WARNING"
+ printf '\n========================================\n MikroTik VPN Manager\n Installation & Management\n %s\n========================================\n%s\n' "$RELEASE_LABEL" "$WARNING"
  printf '1. Install / Repair\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n0. Exit\n'
  read -r -p 'Select an option: ' choice || exit
  case $choice in

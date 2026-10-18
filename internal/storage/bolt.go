@@ -151,6 +151,22 @@ func (s *Store) List(bucket string, out any) error {
 	}
 	return json.Unmarshal(data, out)
 }
+func (s *Store) RecordIDs(bucket string) ([]string, error) {
+	ids := []string{}
+	err := s.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			if v != nil {
+				ids = append(ids, string(k))
+			}
+			return nil
+		})
+	})
+	return ids, err
+}
 func (s *Store) Backup(w io.Writer) error {
 	return s.DB.View(func(tx *bolt.Tx) error { _, e := tx.WriteTo(w); return e })
 }

@@ -13,9 +13,11 @@ import (
 )
 
 type Config struct {
+	Version                              string
 	Address, Database, Origin, Cert, Key string
 	Master                               []byte
 	Allowed                              []netip.Prefix
+	TrustedProxies                       []string
 	Mutations, Dev, ProxyTLS             bool
 	Timeout                              time.Duration
 }
@@ -24,6 +26,18 @@ func Load() (Config, error) {
 	c := Config{Address: env("MVM_LISTEN", "127.0.0.1:8080"), Database: env("MVM_DATABASE", defaultDatabase()), Origin: env("MVM_ORIGIN", "https://localhost:8443"), Cert: os.Getenv("MVM_TLS_CERT"), Key: os.Getenv("MVM_TLS_KEY"), Mutations: os.Getenv("MVM_ALLOW_MUTATIONS") == "true", Dev: os.Getenv("MVM_DEV_HTTP") == "true", Timeout: 20 * time.Second}
 	var e error
 	c.ProxyTLS = os.Getenv("MVM_PROXY_TLS") == "true"
+	if raw := os.Getenv("MVM_TRUSTED_PROXIES"); raw != "" {
+		for _, value := range strings.Split(raw, ",") {
+			value = strings.TrimSpace(value)
+			if _, err := netip.ParseAddr(value); err != nil {
+				p, err := netip.ParsePrefix(value)
+				if err != nil || p.Bits() == 0 {
+					return c, errors.New("MVM_TRUSTED_PROXIES requires explicit IPs or restricted CIDRs")
+				}
+			}
+			c.TrustedProxies = append(c.TrustedProxies, value)
+		}
+	}
 	if (c.Cert == "") != (c.Key == "") {
 		return c, errors.New("provide both MVM_TLS_CERT and MVM_TLS_KEY")
 	}

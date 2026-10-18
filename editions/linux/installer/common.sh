@@ -62,7 +62,11 @@ load_config() {
  [[ -s ${MVM_MASTER_KEY_FILE:-} ]] || die 'Existing master key missing; recovery required'
  [[ ${MVM_DATABASE:-} == "$DATA/mvm.db" ]] || die 'Unexpected database path; use reviewed manual recovery'
  if [[ -n ${MVM_TLS_CERT:-} ]]; then
-  openssl x509 -in "$MVM_TLS_CERT" -noout -checkend 0 >/dev/null || die 'TLS certificate invalid/expired'
+  if [[ ${1:-} == --replace-tls ]]; then
+   openssl x509 -in "$MVM_TLS_CERT" -noout >/dev/null || die 'TLS certificate invalid'
+  else
+   openssl x509 -in "$MVM_TLS_CERT" -noout -checkend 0 >/dev/null || die 'TLS certificate invalid/expired'
+  fi
   [[ -s ${MVM_TLS_KEY:-} ]] || die 'TLS key missing'
  else [[ ${MVM_LISTEN:-} == 127.0.0.1:* && ${MVM_DEV_HTTP:-} == true ]] || die 'HTTP must bind loopback'; fi
 }

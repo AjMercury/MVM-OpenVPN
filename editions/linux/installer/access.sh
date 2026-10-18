@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 access_panel() {
  preflight
- load_config
+ load_config --replace-tls
  [[ $# -le 1 ]] || die 'Usage: mvm access [SERVER_IP_OR_DOMAIN]'
  PANEL_HOST=${1:-$(detect_panel_ip)}
  PANEL_HOST=${PANEL_HOST,,}

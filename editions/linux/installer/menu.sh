@@ -60,7 +60,7 @@ command_run() {
   printf 'MVM_ADDITIONAL_ORIGINS=%s\n' "$aliases" >> "$CONF/config.env"
   if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'Port change failed; previous configuration restored'; fi;;
   tls)
-  preflight; load_config
+  preflight; load_config --replace-tls
   [[ $# == 3 && $3 =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || die 'Usage: mvm tls CERT_PEM KEY_PEM HTTPS_ORIGIN'
   openssl x509 -in "$1" -noout -checkend 0 >/dev/null || die 'Expired or invalid certificate'
   local certpub keypub

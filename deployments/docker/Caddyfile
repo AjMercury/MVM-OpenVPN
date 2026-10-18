@@ -1,0 +1,9 @@
+{
+ admin off
+ auto_https off
+}
+https://{$MVM_TLS_HOST:localhost}:8443 {
+ tls /etc/mvm-tls/server.crt /etc/mvm-tls/server.key
+ reverse_proxy manager:8080
+ # No access logger: delivery capabilities must never appear in request logs.
+}

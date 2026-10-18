@@ -1,0 +1,13 @@
+name: systemd-disposable-host
+on: [workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/disposable-vm.sh

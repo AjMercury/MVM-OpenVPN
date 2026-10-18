@@ -9,7 +9,11 @@ Pre-publication evidence:
 - [Quality run 39173458360](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173458360): PASS — formatting, vet, manifests, Go race tests, vulnerability scanner, secret scan, and separate amd64/arm64 OCI image build and HIGH/CRITICAL vulnerability scans.
 - [Ubuntu run 39173296693](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173296693): PASS — stable archive install without preview acceptance, hidden administrator credentials, SQLite, systemd start/stop/restart, same-version repair, update/rollback, key preservation and standard uninstall. The public preview install job also passes with the new root verifier, ordinary login, closed setup and authentic/tampered manifest checks.
 
-The v1.0.0 tag workflow repeats native build/test/scanner/lifecycle gates before signing and publication, then tests the actual public stable install. Its final result is recorded after execution.
+Final v1.0.0 evidence:
+
+- [Release run 39173605545](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605545): PASS — amd64/arm64 native builds, Go tests/vet/vulnerability checks, Bash suites, actual stable Ubuntu lifecycle, signed manifest, publication and anonymous public stable installation. Public installation verifies first login, closed browser setup, credential redaction and rejection of a cryptographically altered manifest.
+- [Tag quality run 39173605706](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605706): PASS — Go race/vulnerability/secret checks and both architecture OCI image scans.
+- [v1.0.0](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.0) was published as a non-draft, non-prerelease release. Its twelve assets include both archives, build metadata/SBOMs, SHA256SUMS and its Sigstore bundle. Source tag points to commit `fc922b8`; later documentation changes do not replace the release artifacts.
 
 The sections below describe historical preview evidence; current release status supersedes historical availability and scanner limitations.
 # Authenticated Linux release verification — 2026-10-19

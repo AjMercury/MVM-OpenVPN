@@ -2,6 +2,8 @@
 
 Linux management panel for MikroTik OpenVPN, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
 
+[v1.0.0 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.0). [Public stable installation and native Ubuntu 24.04 lifecycle pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605545), and [security/race/container checks pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605706).
+
 **Release scope:** stable native Linux manager. RouterOS VPN automation remains experimental and disabled by default. Actual router/client interoperability, effective access restrictions and certificate offboarding still require an authorized lab. This release does not certify those workflows for production.
 
 ## Install on Ubuntu

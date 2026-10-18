@@ -1,6 +1,6 @@
 # Authenticated Linux release delivery
 
-Status (2026-10-19): implementation added; no published Release or Linux end-to-end bootstrap certification recorded. Do not advertise the Quick Install as operational until the publication and test gates below pass. Source maturity remains Development Preview.
+Status (2026-10-19, Asia/Tehran): **[v0.2.0-preview.2](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.2) is published** as a Development Preview. The [release workflow](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170292378) passed both architecture builds, Go and installer suites, actual native Ubuntu 24.04 amd64 lifecycle, manifest attestation, publication and anonymous public one-line installation/login. The preview command is operational on that tested platform. No stable Release exists; the default stable command deliberately fails. Source maturity remains Development Preview.
 
 ## Trust and selection
 
@@ -35,4 +35,21 @@ On bootstrap success temporary downloads are removed. On failure `/var/tmp/mvm-b
 
 See `tests/installer/run.sh`, `tests/installer/bootstrap.sh`, `tests/installer/terminal.py`, and `tests/systemd/disposable-vm.sh`. Source-based tests mock service/APT operations and exercise state, password validation/redaction, dependencies, checksum failures, signature-verifier failure and exact policy arguments, safe archives, channel/pinning, API errors, failed readiness, backup failure, update/rollback and uninstall preservation. Linux-only PTY tests cover detached-pipe refusal and piped-script parsing with a controlling terminal. The systemd suite performs actual SQLite/admin/service lifecycle tests on a guarded empty disposable host using a controlling PTY.
 
-Executed on Windows: Go `go test -tags nomsgpack ./...` passed outside sandbox restrictions (sandbox-only sockets/hard-link failures disappeared). Installer suite results are recorded in the task delivery; Linux PTY tests explicitly skip on Windows. Invalid-signature tests currently mock verifier refusal; live valid/invalid Sigstore bundles, public anonymous CLI verification, actual APT installation, public raw-pipe installation, systemd readiness, remote TLS/firewall and real Linux update/rollback remain unexecuted here. WSL has no installed distribution. Do not claim these tests passed.
+Executed results:
+
+| Test | Result |
+|---|---|
+| Windows Go `go test -tags nomsgpack ./...` | PASS outside sandbox; sandbox-only sockets/hard-link failures disappeared |
+| Windows Bash installer suite | PASS; Linux PTY/POSIX permission assertions explicitly skipped locally |
+| Ubuntu release build matrix (amd64/arm64 artifacts) | PASS; Go and installer suites run on amd64 host; arm64 binaries cross-built |
+| Linux pipe + controlling `/dev/tty`, detached-pipe refusal | PASS in both release build jobs |
+| Live Ubuntu 24.04 amd64 install, SQLite admin, systemd enable/start/stop/restart/readiness | PASS, lifecycle job 117801750487 |
+| Live update, rollback, key preservation, standard uninstall with persistent data retained | PASS, same lifecycle job |
+| Attested manifest generation + exact tag/workflow verification | PASS, publish job 117802061100 |
+| Public raw `curl ... | sudo bash -s -- --channel preview`, no GitHub login/token | PASS, public-install job 117802113295 |
+| Public hidden password entry, transcript redaction, normal login and `/setup` closed | PASS, same public-install job |
+| Failed download/API/missing Release, wrong checksum, unsafe archives, state detection, failed readiness/backup recovery, bounded APT approval/refusal | PASS in source-based tests; failures/APT/service recovery are mocked |
+
+Preview.1 was deliberately not released: its real Linux lifecycle gate caught private release-directory permissions that blocked the unprivileged service. Preview.2 fixes code directory/file modes without weakening private config/key/database modes. Failed tags are retained; assets/tags were not overwritten.
+
+Unexecuted or unresolved: Debian 12/13, Ubuntu 22.04 and arm64 runtime installation; actual missing-dependency APT/official CLI-repository installation (runner had dependencies); trusted remote TLS/firewall validation; real failure-injected systemd recovery (mock coverage exists); stable promotion and real RouterOS/VPN interoperability. Local WSL has no installed distribution, so actual Linux tests ran on disposable GitHub-hosted Ubuntu instead. Environment review/tag protections still need repository-owner review; no claim is made that protection rules were provisioned. The separate existing `quality` container job fails because `aquasecurity/trivy-action@0.33.1` does not resolve; it is independent of the passing Linux release workflow and remains unchanged.

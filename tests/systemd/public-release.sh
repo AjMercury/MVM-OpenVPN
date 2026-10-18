@@ -31,4 +31,16 @@ else: raise SystemExit('Browser setup remained enabled')
 PY
 systemctl is-active --quiet mvm
 runuser -u mvm -- env MVM_MASTER_KEY_FILE=/etc/mvm/master.key /opt/mvm/current/mvmctl check /var/lib/mvm/mvm.db
+version=$(sed -n 's/^VERSION=//p' /opt/mvm/current/metadata.env)
+curl -fsSL "https://github.com/AjMercury/MvM-OpenVPN/releases/download/v$version/SHA256SUMS" -o "$testdir/SHA256SUMS"
+curl -fsSL "https://github.com/AjMercury/MvM-OpenVPN/releases/download/v$version/SHA256SUMS.sigstore.json" -o "$testdir/bundle.json"
+verify_live_manifest() {
+ gh attestation verify "$testdir/SHA256SUMS" --bundle "$testdir/bundle.json" \
+  --repo AjMercury/MVM-OpenVPN --source-ref "refs/tags/v$version" --deny-self-hosted-runners \
+  --cert-identity "https://github.com/AjMercury/MVM-OpenVPN/.github/workflows/release.yaml@refs/tags/v$version" > "$testdir/verification" 2>&1
+}
+verify_live_manifest
+printf 'tampered\n' >> "$testdir/SHA256SUMS"
+if verify_live_manifest; then echo 'Tampered signed manifest accepted'; exit 1; fi
+printf 'PASS: real published signature accepted; cryptographically mismatched manifest rejected\n'
 printf 'PASS: anonymous authenticated public release, raw piped bootstrap, controlling terminal, hidden first credentials, SQLite, systemd readiness and normal login\n'

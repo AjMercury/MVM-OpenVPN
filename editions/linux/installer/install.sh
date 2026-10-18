@@ -64,6 +64,9 @@ repair_panel() {
  [[ -f $DATA/mvm.db ]] || die 'Repair requires an existing SQLite database. Incomplete initialization needs reviewed manual recovery; no empty database created.'
 
  install -d -m 755 "$BASE"
+ # Reinstall the current version into a separate verified directory.
+ # Never overwrite the active/damaged release in place.
+ local REPAIR_STAGING=true
  stage_release "$@"
  systemctl stop mvm 2>/dev/null || true
  # Use the staged compatible binary if the management installation was removed.

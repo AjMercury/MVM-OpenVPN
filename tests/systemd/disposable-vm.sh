@@ -21,6 +21,8 @@ systemctl start mvm
 systemctl restart mvm
 systemctl is-active --quiet mvm
 before=$(sha256sum /etc/mvm/master.key)
+printf '\n' | python3 tests/installer/terminal.py mvm repair "$archive" "$digest" 0.2.0-test1
+[[ $before == "$(sha256sum /etc/mvm/master.key)" ]]
 if printf '\n' | python3 tests/installer/terminal.py mvm install "$archive" "$digest" 0.2.0-test1; then echo 'Repeated installation accepted'; exit 1; fi
 printf '\n' | python3 tests/installer/terminal.py mvm backup
 bash scripts/package-linux.sh 0.2.0-test2 amd64
@@ -31,4 +33,4 @@ printf '\n' | python3 tests/installer/terminal.py mvm rollback
 [[ $before == "$(sha256sum /etc/mvm/master.key)" ]]
 printf 'REMOVE\n' | python3 tests/installer/terminal.py mvm uninstall
 [[ -f /etc/mvm/master.key && -f /var/lib/mvm/mvm.db && -d /var/backups/mvm && ! -e /etc/systemd/system/mvm.service ]]
-printf 'PASS: actual native install/start/stop/restart/enable/update/rollback/standard uninstall on disposable systemd host.\n'
+printf 'PASS: actual native install/same-version repair/start/stop/restart/enable/update/rollback/standard uninstall on disposable systemd host.\n'

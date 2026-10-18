@@ -23,6 +23,7 @@ if [[ $(uname -s) == Linux ]]; then
  [[ $(stat -c %a "$BASE/releases/1/metadata.env") == 644 ]]
 else printf 'SKIP: POSIX release permission assertions require Linux\n'; fi
 if (stage_release "$tmp/release.tar.gz" "$digest" 1);then exit 1;fi
+(REPAIR_STAGING=true; stage_release "$tmp/release.tar.gz" "$digest" 1; [[ $TARGET == "$BASE/releases/1-repair-"* && -f $TARGET/server ]])
 if (ARCH=arm64;stage_release "$tmp/release.tar.gz" "$digest" 1);then exit 1;fi
 if (stage_release "$tmp/missing.tar.gz" "$digest" 2);then exit 1;fi
 curl(){ return 22; }

@@ -98,8 +98,12 @@ stage_release() {
  grep -qx "ARCH=$ARCH" "$STAGE/payload/metadata.env" || die 'Architecture mismatch'
  grep -qx "VERSION=$version" "$STAGE/payload/metadata.env" || die 'Version mismatch'
  grep -qx 'SCHEMA=1' "$STAGE/payload/metadata.env" || die 'Unsupported migration compatibility'
- [[ ! -e $BASE/releases/$version ]] || die 'Release already staged; inspect/repair explicitly'
  TARGET="$BASE/releases/$version"
+ if [[ -e $TARGET || -L $TARGET ]]; then
+  [[ ${REPAIR_STAGING:-false} == true ]] || die 'Release already staged; inspect/repair explicitly'
+  TARGET="$BASE/releases/$version-repair-$(date +%s)-$RANDOM"
+  [[ ! -e $TARGET && ! -L $TARGET ]] || die 'Repair stage collision'
+ fi
  install -d -m 755 "$BASE/releases"
  mv "$STAGE/payload" "$TARGET"
  # umask 077 keeps staging private; published code must be traversable/executable

@@ -7,6 +7,10 @@ output=$(printf '0\n' | python3 "$root/tests/installer/terminal.py" bash "$root/
 grep -q 'Development Preview' <<< "$output"
 grep -q 'Real RouterOS and VPN client interoperability testing is incomplete' <<< "$output"
 grep -q '15) Panel Information' <<< "$output"
+output=$(printf '7\n0\n' | NO_COLOR=1 python3 "$root/tests/installer/terminal.py" bash "$root/editions/linux/installer/menu.sh")
+[[ $(grep -c 'MVM Control Panel' <<< "$output") == 2 ]]
+output=$(printf '0\n' | TERM=xterm NO_COLOR= python3 "$root/tests/installer/terminal.py" bash "$root/editions/linux/installer/menu.sh")
+[[ $output == *$'\033[1;36m'* ]]
 else
  printf 'SKIP: controlling-PTY menu integration requires Linux\n'
 fi

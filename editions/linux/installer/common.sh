@@ -16,6 +16,11 @@ if [[ -f $(dirname -- "${BASH_SOURCE[0]}")/../../../metadata.env ]] && grep -qx 
 fi
 die() { printf '%s\n' "$*" >&2; exit 1; }
 step() { printf '\n[MVM] %s\n' "$*" >&2; }
+disable_cert_renewal() {
+ if [[ -f /etc/systemd/system/mvm-cert-renew.timer ]]; then
+  systemctl disable --now mvm-cert-renew.timer || step 'Could not disable certificate timer; inspect mvm-cert-renew.timer'
+ fi
+}
 root() { [[ $EUID == 0 ]] || die 'Run with sudo.'; }
 installation_state() {
  if [[ -L $BASE/current && -f $CONF/config.env && -s $CONF/master.key && -f $DATA/mvm.db ]]; then printf 'installed\n'

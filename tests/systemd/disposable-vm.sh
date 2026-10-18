@@ -30,6 +30,9 @@ unset secret
 systemd-analyze verify /etc/systemd/system/mvm.service
 [[ $(systemctl show mvm -p Description --value) == 'MikroTik VPN Manager' ]]
 systemctl is-enabled --quiet mvm
+# The deliberately rapid protocol/port test consumed the default systemd start burst.
+# Reset its counter between independent lifecycle scenarios, not in the shipped service.
+systemctl reset-failed mvm
 systemctl stop mvm
 ! systemctl is-active --quiet mvm
 systemctl start mvm
@@ -43,6 +46,7 @@ printf '\n' | python3 tests/installer/terminal.py mvm backup
 bash scripts/package-linux.sh "$next_version" amd64
 archive2="$root/artifacts/editions/mvm-linux-amd64-$next_version.tar.gz"
 digest2=$(sha256sum "$archive2" | cut -d ' ' -f 1)
+systemctl reset-failed mvm
 printf '\n' | python3 tests/installer/terminal.py mvm update "$archive2" "$digest2" "$next_version"
 printf '\n' | python3 tests/installer/terminal.py mvm rollback
 [[ $before == "$(sha256sum /etc/mvm/master.key)" ]]

@@ -19,7 +19,7 @@ acme_prepare() {
  if [[ -f $BASE/acme/acme.sh ]] && printf '%s  %s\n' "$ACME_SHA256" "$BASE/acme/acme.sh" | sha256sum --check --status; then return; fi
  step 'Downloading and verifying the pinned official acme.sh client'
  temp=$(mktemp "$BASE/acme/.download-XXXXXXXX")
- if ! curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 15 --max-time 120 \
+ if ! curl --fail --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 15 --max-time 120 --max-filesize 2097152 \
   "https://raw.githubusercontent.com/acmesh-official/acme.sh/$ACME_REVISION/acme.sh" -o "$temp"; then
   rm -f -- "$temp"; die 'ACME client download failed; panel unchanged'
  fi
@@ -64,6 +64,7 @@ UNIT
 }
 acme_deploy() {
  local host=$1 directory="$CONF/acme/deploy-$1"
+ local MANAGED_CERT_DEPLOY=true
  load_config --replace-tls
  # Serving copies are immutable per deployment; failed readiness restores the previous config.
  tls_panel "$directory/fullchain.pem" "$directory/key.pem" "https://$host:${MVM_LISTEN##*:}"

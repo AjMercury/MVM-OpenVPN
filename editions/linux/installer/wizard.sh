@@ -151,5 +151,6 @@ completion_summary() {
   printf 'Open %s from another computer. Allow TCP port %s in the host/network firewall if blocked.\n' "$PANEL_ORIGIN" "$PANEL_PORT"
   if [[ -n ${PANEL_ADDITIONAL_ORIGINS:-} ]]; then printf 'IP access:    %s\n' "$PANEL_ADDITIONAL_ORIGINS"; fi
   if [[ ${PANEL_AUTO_TLS:-false} == true ]]; then print_panel_fingerprint; fi
+  if [[ ${PANEL_HTTP:-false} == true ]]; then printf 'Optional HTTPS and automatic certificate renewal: sudo mvm ssl (menu 17).\n'; fi
  fi
 }

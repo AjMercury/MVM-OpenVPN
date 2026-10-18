@@ -27,6 +27,7 @@ access_panel() {
   systemctl restart mvm || true
   die 'Access change failed; previous configuration restored'
  fi
+ disable_cert_renewal
  printf 'Panel URL: %s\n' "$PANEL_ORIGIN"
  if [[ -n $PANEL_ADDITIONAL_ORIGINS ]]; then printf 'IP access: %s\n' "$PANEL_ADDITIONAL_ORIGINS"; fi
  printf 'Allow TCP port %s in the host/network firewall if blocked.\n' "$PANEL_PORT"
@@ -47,8 +48,7 @@ tls_panel() {
   validate_tls "$1" "$2" "$tls_host"
   local tls_bind=${MVM_LISTEN%:*}
   if [[ $tls_bind == 127.0.0.1 ]]; then
-   tls_bind=$(detect_panel_ip)
-   [[ -n $tls_bind ]] || die 'Cannot detect a server IP for TLS'
+   tls_bind=0.0.0.0
   fi
   backup_db '' --replace-tls >/dev/null
   local suffix; suffix=$(openssl rand -hex 12)
@@ -60,4 +60,5 @@ tls_panel() {
   sed -i "s|^MVM_LISTEN=.*|MVM_LISTEN=$tls_bind:${MVM_LISTEN##*:}|" "$CONF/config.env"
   printf 'MVM_TLS_CERT=%s\nMVM_TLS_KEY=%s\nMVM_ORIGIN=%s\nMVM_DEV_HTTP=false\nMVM_ALLOW_HTTP=false\nMVM_PROXY_TLS=false\n' "$CONF/tls/server-$suffix.crt" "$CONF/tls/server-$suffix.key" "$3" >> "$CONF/config.env"
   if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'TLS readiness failed; previous configuration restored'; fi
+  if [[ ${MANAGED_CERT_DEPLOY:-false} != true ]]; then disable_cert_renewal; fi
 }

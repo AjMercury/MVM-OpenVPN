@@ -6,12 +6,18 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$SCRIPT_DIR/install.sh"
 . "$SCRIPT_DIR/update.sh"
 . "$SCRIPT_DIR/uninstall.sh"
+# Real entry points require a terminal. Source-based unit tests exercise functions separately.
+if ! (: </dev/tty) 2>/dev/null; then die 'Interactive terminal required (/dev/tty); no unattended mode is offered.'; fi
+exec 0</dev/tty
 command_run() {
  local command=${1:-}; shift || true
  case $command in
- install) install_panel "$@";;
-repair) repair_panel "$@";;
- update) update_panel "$@";;
+ install|repair|update)
+  if [[ $# == 0 ]]; then
+   bash "$SCRIPT_DIR/../../../install.sh" --channel preview --action "$command"
+  elif [[ $command == install ]]; then install_panel "$@";
+  elif [[ $command == repair ]]; then repair_panel "$@";
+  else update_panel "$@"; fi;;
  rollback) rollback_panel;;
  uninstall) uninstall_panel "$@";;
  start|stop|restart|status) root; systemctl "$command" mvm;;
@@ -76,11 +82,12 @@ repair) repair_panel "$@";;
 if [[ $# -gt 0 ]]; then command_run "$@"; exit; fi
 while true; do
  printf '\n========================================\n MikroTik VPN Manager\n Installation & Management\n Development Preview\n========================================\n%s\n' "$WARNING"
- printf '1. Install Panel\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n0. Exit\n'
+ printf '1. Install / Repair\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n0. Exit\n'
  read -r -p 'Select an option: ' choice || exit
  case $choice in
  0) exit;;
- 1|2) read -r -p 'Release archive or HTTPS URL: ' archive; read -r -p 'Trusted SHA256: ' digest; read -r -p 'Version: ' ver; if [[ $choice == 1 ]]; then command_run install "$archive" "$digest" "$ver"; else command_run update "$archive" "$digest" "$ver"; fi;;
+ 1) if [[ $(installation_state) == fresh ]]; then command_run install; else command_run repair; fi;;
+ 2) command_run update;;
  3) command_run uninstall;; 4) command_run start;;5) command_run stop;;6) command_run restart;;7) command_run status;;8) command_run logs;;
  9) read -r -p 'Panel port (existing bind address retained): ' port; command_run port "$port";;
   10) read -r -p 'Certificate PEM path: ' cert; read -r -p 'Key PEM path: ' key; read -r -p 'HTTPS origin (trusted SAN, current port): ' origin; command_run tls "$cert" "$key" "$origin";;

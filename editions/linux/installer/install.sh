@@ -48,6 +48,7 @@ WRAPPER
  systemctl daemon-reload
  systemctl enable --now mvm
  ready || die 'Service readiness failed; installation retained for repair. See journalctl -u mvm.'
+ curl --noproxy '*' --fail --silent --max-time 10 "$PANEL_ORIGIN/" >/dev/null || die 'Panel login URL could not be verified. Installation retained; inspect DNS, TLS and firewall before announcing remote access.'
  completion_summary
 }
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then

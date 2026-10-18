@@ -18,15 +18,15 @@ installation_state() {
 validate_os() {
  [[ $ID == debian || $ID == ubuntu ]] || die 'Only Debian and Ubuntu are supported'
  if [[ $ID == ubuntu ]]; then
-  [[ ${VERSION_ID:-} =~ ^[0-9][02468]\.04$ && ${VERSION_ID%%.*} -ge 22 ]] || die 'Ubuntu Server LTS 22.04 or newer required'
- else [[ ${VERSION_ID:-} =~ ^[0-9]+$ && $VERSION_ID -ge 12 ]] || die 'Debian 12 or newer required'; fi
+  [[ ${VERSION_ID:-} == 22.04 || ${VERSION_ID:-} == 24.04 ]] || die 'Ubuntu LTS 22.04 or 24.04 required'
+ else [[ ${VERSION_ID:-} == 12 || ${VERSION_ID:-} == 13 ]] || die 'Debian 12 or 13 required'; fi
 }
 ensure_service_user() {
  id mvm >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin mvm
  [[ $(id -u mvm) =~ ^[0-9]+$ && $(id -u mvm) -gt 0 ]] || die 'mvm must be an unprivileged service account'
 }
 validate_arch() {
- case "$1" in x86_64) ARCH=amd64;; aarch64) ARCH=arm64;; *) die 'Unsupported architecture';; esac
+ case "$1" in x86_64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; *) die 'Unsupported architecture';; esac
 }
 check_space() {
  for location in /var /opt; do
@@ -138,7 +138,7 @@ move_database() {
 ensure_prerequisites() {
  local command package answer
  local -a packages=()
- for pair in curl:curl openssl:openssl ss:iproute2 ip:iproute2 flock:util-linux runuser:util-linux useradd:passwd tar:tar awk:mawk sed:sed grep:grep find:findutils sha256sum:coreutils df:coreutils install:coreutils readlink:coreutils mktemp:coreutils cut:coreutils systemctl:systemd journalctl:systemd; do
+ for pair in curl:curl openssl:openssl ss:iproute2 ip:iproute2 flock:util-linux runuser:util-linux useradd:passwd tar:tar gzip:gzip awk:mawk sed:sed grep:grep find:findutils sha256sum:coreutils df:coreutils install:coreutils readlink:coreutils mktemp:coreutils cut:coreutils systemctl:systemd journalctl:systemd; do
   command=${pair%%:*}; package=${pair#*:}
   command -v "$command" >/dev/null || packages+=("$package")
  done

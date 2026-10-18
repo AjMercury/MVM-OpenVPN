@@ -16,7 +16,6 @@ validate_zone(){ [[ $1 == UTC ]]; }
 output=$(installation_wizard <<'INPUT'
 8443
 panel.example.test
-y
 owner
 unique long secret passphrase
 unique long secret passphrase
@@ -28,10 +27,10 @@ printf '%s %s %s' "$PANEL_BIND" "$PANEL_ORIGIN" "$ADMIN_USERNAME")
 [[ $output == *'127.0.0.1 http://127.0.0.1:8443 owner'* ]]
 [[ $output != *'unique long secret passphrase'* ]]
 BASE=$(mktemp -d); trap 'rm -rf -- "$BASE"' EXIT
-mkdir -p "$BASE/current"; printf 'VERSION=0.2.0-dev\n' > "$BASE/current/metadata.env"
+mkdir -p "$BASE/current"; printf 'VERSION=0.2.0-dev\nMATURITY=DevelopmentPreview\n' > "$BASE/current/metadata.env"
 PANEL_ORIGIN=http://127.0.0.1:8443; PANEL_PORT=8443; ADMIN_USERNAME=owner; DEFER_ADMIN=false; PANEL_TLS=false; PANEL_HOST=panel.example.test
 output=$(completion_summary)
-[[ $output == *'Status:      RUNNING'* && $output == *'Version:     0.2.0-dev'* && $output == *'ssh -N -L 8443:127.0.0.1:8443'* && $output == *'Configured securely during installation'* ]]
+[[ $output == *'Status:       RUNNING'* && $output == *'Version:      0.2.0-dev'* && $output == *'ssh -N -L 8443:127.0.0.1:8443'* && $output == *'Configured securely'* ]]
 # No package mutation after refusal.
 command(){ return 1; }
 apt-get(){ printf 'MUST NOT EXECUTE'; exit 99; }

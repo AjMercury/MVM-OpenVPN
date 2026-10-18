@@ -1,0 +1,81 @@
+name: authenticated-linux-release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Validate preview tag (stable promotion requires separate reviewed maturity change)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(dev|preview|rc)\.[0-9]+$ ]]
+      - run: go test -tags nomsgpack ./...
+      - run: bash tests/installer/run.sh
+      - name: Package Linux
+        env:
+          TAG: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
+        run: bash scripts/package-linux.sh "${TAG#v}" "$ARCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: artifacts/editions/*
+          if-no-files-found: error
+  lifecycle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/disposable-vm.sh
+  publish:
+    needs: [build, lifecycle]
+    runs-on: ubuntu-24.04
+    environment: linux-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-*
+          merge-multiple: true
+          path: release
+      - name: Manifest includes archives, build metadata and SBOMs
+        run: |
+          cd release
+          sha256sum mvm-* > SHA256SUMS
+      - uses: actions/attest-build-provenance@v2
+        id: attest
+        with:
+          subject-path: release/SHA256SUMS
+      - name: Publish authenticated Development Preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE" release/SHA256SUMS.sigstore.json
+          gh attestation verify release/SHA256SUMS --bundle release/SHA256SUMS.sigstore.json \
+            --repo "$GITHUB_REPOSITORY" --source-ref "$GITHUB_REF" --deny-self-hosted-runners \
+            --cert-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yaml@$GITHUB_REF"
+          gh release create "$TAG" release/* --verify-tag --prerelease \
+            --title "$TAG — Development Preview" \
+            --notes 'Development Preview. Production deployment is not recommended. See README and SBOMs. Native systemd lifecycle gate covers Ubuntu 24.04 amd64 only; other implementation targets require runtime testing.'

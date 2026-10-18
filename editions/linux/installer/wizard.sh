@@ -37,8 +37,7 @@ installation_wizard() {
  port_available "$PANEL_PORT" || die 'Panel port is already in use'
  read -r -p 'Hostname or management IPv4 address: ' PANEL_HOST
  [[ $PANEL_HOST =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || die 'Invalid hostname/address'
- read -r -p 'Create administrator now? [Y/n] (n retains secure browser setup): ' answer
- DEFER_ADMIN=false; [[ $answer != n ]] || DEFER_ADMIN=true
+ DEFER_ADMIN=false
  if [[ $DEFER_ADMIN == false ]]; then
   read -r -p 'Administrator username: ' ADMIN_USERNAME
   [[ $ADMIN_USERNAME =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,26}$ ]] || die 'Invalid username (1–27 characters)'
@@ -64,11 +63,11 @@ installation_wizard() {
  fi
 }
 completion_summary() {
- local version
+ local version maturity
  version=$(sed -n 's/^VERSION=//p' "$BASE/current/metadata.env")
- printf '\n=======================================\n   MikroTik VPN Manager — Installed\n=======================================\n\nStatus:      RUNNING\nVersion:     %s\nEdition:     Linux\nDatabase:    SQLite\nService:     mvm.service\n\nPanel URL:   %s\nPanel Port:  %s\n\nUsername:    %s\n' "$version" "$PANEL_ORIGIN" "$PANEL_PORT" "$ADMIN_USERNAME"
- if [[ $DEFER_ADMIN == false ]]; then printf 'Password:    Configured securely during installation\n'; else printf 'Credentials: Deferred; read /etc/mvm/bootstrap.token locally for /setup\n'; fi
- printf '\nManagement:  sudo mvm\nService:     sudo systemctl status mvm\n\nRelease:     Development Preview\n=======================================\n'
+ maturity=$(sed -n 's/^MATURITY=//p' "$BASE/current/metadata.env")
+ [[ $maturity != DevelopmentPreview ]] || maturity='Development Preview'
+ printf '\n=========================================\n       MikroTik VPN Manager\n         Installation Complete\n=========================================\n\nVersion:      %s\nEdition:      Linux\nService:      mvm.service\nStatus:       RUNNING\nDatabase:     SQLite\n\nPanel URL:    %s\nPanel Port:   %s\nUsername:     %s\nPassword:     Configured securely\n\nManagement:   sudo mvm\n\nRelease:      %s\n=========================================\n' "$version" "$PANEL_ORIGIN" "$PANEL_PORT" "$ADMIN_USERNAME" "$maturity"
  if [[ $PANEL_TLS == false ]]; then
   printf 'Loopback only. On your workstation run:\n  ssh -N -L %s:127.0.0.1:%s <ssh-user>@%s\nThen open %s\n' "$PANEL_PORT" "$PANEL_PORT" "$PANEL_HOST" "$PANEL_ORIGIN"
  fi

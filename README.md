@@ -2,6 +2,44 @@
 
 **WARNING: This application is currently a Development Preview. Real RouterOS and VPN client interoperability testing is incomplete. Production deployment is not recommended.**
 
+## Quick Install — Linux
+
+**Release availability gate: these commands are not yet advertised as operational. No authenticated official Release or completed one-line Linux end-to-end test is recorded.** See [release configuration and test evidence](docs/operations/releases.md). With no eligible Release the bootstrap fails clearly.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash
+```
+
+### Development Preview
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash -s -- --channel preview
+```
+
+Preview requires explicit `INSTALL PREVIEW` confirmation. To pin a published preview, append `--version vX.Y.Z-preview.N`; version placeholders are not existing releases. The default channel selects stable releases only; the current Development Preview source cannot publish a stable release.
+
+### Management
+
+```bash
+sudo mvm
+```
+
+### Service Status
+
+```bash
+sudo systemctl status mvm
+```
+
+### Supported Platforms
+
+Implementation targets: Ubuntu 22.04/24.04 LTS and Debian 12/13, amd64 and arm64, with systemd and a local filesystem. **Runtime-tested Linux platforms: none recorded for this bootstrap.** Other versions/distributions are rejected. Cross-compilation and mocked tests do not establish runtime support.
+
+The installer checks platform, privileges and existing data; offers targeted APT dependency installation; discovers official releases; verifies the signed provenance of the checksum manifest and the selected archive; creates SQLite and the administrator; installs systemd and `sudo mvm`; and verifies readiness and the login URL. It requires a controlling terminal. No Go, Docker or external SQLite server is needed. If necessary, it offers the official signed GitHub CLI APT repository for the verification tool.
+
+Configure **Administrator Username and Password inside the Bash wizard**, with hidden password confirmation, port (8443 by default), English/Persian, timezone, management address and TLS/local access. The browser then opens the normal login page. Default access is loopback only; use the displayed SSH tunnel. Remote access requires trusted HTTPS and an explicit firewall review.
+
+**فارسی:** نصب تک‌خطی هنوز تا انتشار Release معتبر و تکمیل آزمون واقعی لینوکس آماده اعلام عمومی نیست. پس از انتشار پیش‌نمایش، دستور بالا با `--channel preview` اجرا می‌شود و تأیید هشدار لازم است. نام کاربری و رمز مدیر در ویزارد Bash با ورودی مخفی تعیین می‌شوند؛ سپس در مرورگر وارد صفحه عادی ورود شوید. دسترسی پیش‌فرض فقط محلی است؛ برای اتصال از تونل SSH نمایش‌داده‌شده استفاده کنید. مدیریت: `sudo mvm` و وضعیت سرویس: `sudo systemctl status mvm`.
+
 This is the existing Go/Gin modular monolith, refactored as `0.2.0-dev`. Router writes remain disabled by default. No real router mutation or VPN-client interoperability test has been executed.
 
 | | Linux Edition | MikroTik Container Lite Edition |
@@ -44,7 +82,7 @@ scripts/                       archive packaging, binary dependency SBOM generat
 
 ## Build and test
 
-Go 1.26+ is required. This Windows workspace includes `.tools/go/bin/go.exe`. No Git metadata is present in this workspace.
+Go 1.26+ is required for source builds. This Windows workspace includes `.tools/go/bin/go.exe`.
 
 ```sh
 go test -tags nomsgpack ./...
@@ -57,15 +95,15 @@ bash scripts/package-linux.sh 0.2.0-dev arm64
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags nomsgpack,lite ./cmd/server
 ```
 
-For local HTTP development, explicitly set `MVM_DATABASE` to a new local SQLite path, `MVM_MASTER_KEY` to a securely preserved base64 random 32-byte key, `MVM_DEV_HTTP=true`, `MVM_LISTEN=127.0.0.1:8080`, and `MVM_ORIGIN=http://127.0.0.1:8080`. Prefer `MVM_MASTER_KEY_FILE` for a protected key file. Never regenerate an existing installation's key. Run `server bootstrap` with `MVM_ADMIN_USERNAME` and a securely prompted `MVM_ADMIN_PASSWORD`, or configure a protected 32+ character `MVM_BOOTSTRAP_TOKEN_FILE` and visit `/setup`. No default password is shipped. The native installer uses protected-stdin offline creation by default and offers browser setup only when explicitly deferred.
+For local HTTP development, explicitly set `MVM_DATABASE` to a new local SQLite path, `MVM_MASTER_KEY` to a securely preserved base64 random 32-byte key, `MVM_DEV_HTTP=true`, `MVM_LISTEN=127.0.0.1:8080`, and `MVM_ORIGIN=http://127.0.0.1:8080`. Prefer `MVM_MASTER_KEY_FILE` for a protected key file. Never regenerate an existing installation's key. Run `server bootstrap` with `MVM_ADMIN_USERNAME` and a securely prompted `MVM_ADMIN_PASSWORD`, or configure a protected 32+ character `MVM_BOOTSTRAP_TOKEN_FILE` and visit `/setup`. No default password is shipped. The native Bash wizard always creates the administrator offline through a protected process pipe to mvmctl.
 
 ## Native Linux installation
 
-Read [Linux installation and management](editions/linux/README.md) first. Obtain an archive and its SHA-256 digest from an authenticated independent channel. There is no published official release URL in this preview.
+Read [Linux installation and management](editions/linux/README.md) and [authenticated release delivery](docs/operations/releases.md) first. For reviewed offline artifacts only, the low-level installer still supports an independently trusted digest.
 
 ```sh
 # From a reviewed source checkout; opens the interactive menu:
-sudo bash install.sh
+sudo bash editions/linux/installer/menu.sh
 # Explicit local artifact installation:
 sudo bash editions/linux/installer/install.sh install /secure/mvm-linux-amd64-0.2.0-dev.tar.gz TRUSTED_SHA256 0.2.0-dev
 # After installation:
@@ -74,7 +112,7 @@ sudo mvm status
 journalctl -u mvm -f
 ```
 
-Installation requires explicit Development Preview acceptance. The wizard defaults to loopback HTTP and creates the administrator before starting the service. Use the displayed SSH tunnel to sign in. Only explicitly deferred creation requires `/setup` and the locally read bootstrap token. Configure trusted HTTPS before exposing any remote listener. TLS setup never requests a public certificate merely from an IP address.
+Installation requires explicit Development Preview acceptance. The wizard defaults to loopback HTTP and creates the administrator before starting the service. Use the displayed SSH tunnel to sign in. The native wizard always creates credentials in Bash. Configure trusted HTTPS before exposing any remote listener. TLS setup never requests a public certificate merely from an IP address.
 
 ## Existing v0.1.0 data
 
@@ -93,7 +131,7 @@ Linux: [edition Docker configuration](editions/linux/README.md). Root Docker/Com
 
 ## فارسی
 
-این نسخه پیش‌نمایش توسعه است و برای استقرار عملیاتی توصیه نمی‌شود. نسخه لینوکس از SQLite رمزگذاری‌شده و نسخه سبک میکروتیک از bbolt استفاده می‌کند؛ منطق برنامه و رابط فارسی/انگلیسی مشترک است. پیش از مهاجرت سرویس را متوقف کنید، کلید قبلی را حفظ کنید و دستور مهاجرت را فقط روی مسیرهای جدید اجرا کنید. پشتیبان معتبر و بررسی رمزگشایی اجباری است. نصب اولیه فقط روی loopback در دسترس است و ایجاد مدیر به توکن محلی نیاز دارد. حذف معمولی داده‌ها و کلید را نگه می‌دارد و هیچ تنظیم VPN روتر را حذف نمی‌کند. آزمایش واقعی RouterOS و کلاینت VPN هنوز اجرا نشده است.
+این نسخه پیش‌نمایش توسعه است و برای استقرار عملیاتی توصیه نمی‌شود. نسخه لینوکس از SQLite رمزگذاری‌شده و نسخه سبک میکروتیک از bbolt استفاده می‌کند؛ منطق برنامه و رابط فارسی/انگلیسی مشترک است. پیش از مهاجرت سرویس را متوقف کنید، کلید قبلی را حفظ کنید و دستور مهاجرت را فقط روی مسیرهای جدید اجرا کنید. پشتیبان معتبر و بررسی رمزگشایی اجباری است. نصب اولیه فقط روی loopback در دسترس است و مدیر در ویزارد Bash با رمز مخفی ساخته می‌شود. حذف معمولی داده‌ها و کلید را نگه می‌دارد و هیچ تنظیم VPN روتر را حذف نمی‌کند. آزمایش واقعی RouterOS و کلاینت VPN هنوز اجرا نشده است.
 
 See [DELIVERY](DELIVERY.md), [verification](docs/verification.md), [edition architecture](docs/architecture/editions.md), [known limitations](docs/limitations.md) and the unchanged [authorized lab procedure](tests/lab/README.md).
 
@@ -103,21 +141,21 @@ See [DELIVERY](DELIVERY.md), [verification](docs/verification.md), [edition arch
 Run from the reviewed repository or extracted verified native release:
 
 ```bash
-sudo bash install.sh install /absolute/path/mvm-linux-amd64-0.2.0-dev.tar.gz <INDEPENDENTLY_TRUSTED_SHA256> 0.2.0-dev
+sudo bash editions/linux/installer/install.sh install /absolute/path/mvm-linux-amd64-0.2.0-dev.tar.gz <INDEPENDENTLY_TRUSTED_SHA256> 0.2.0-dev
 ```
 
-Use arm64 on supported ARM systems. Build new archives from this source before distributing these changes; existing archives have not been replaced. No official release endpoint or signing identity is configured. Automatic latest-release discovery is intentionally unavailable until authenticated official metadata and an independently trusted artifact-verification policy exist. Never substitute an untrusted adjacent checksum.
+The root bootstrap discovers official releases and verifies the signed manifest before installation. Publication and live end-to-end verification are still gated; see the authenticated release-delivery documentation. Low-level offline artifacts require an independently trusted digest.
 
 The wizard collects port (default 8443, range 1024–65535, conflict check), hostname/management IPv4 address, username, hidden password and confirmation, timezone, English/Persian, and local-only or trusted TLS access. Use a unique passphrase of 14–233 bytes. Passwords are not arguments, environment variables, configuration values, logs, or summary output. No default credentials exist. `mvmctl bootstrap-admin DB USERNAME TIMEZONE en|fa` reads the exact password from protected stdin with no terminating newline. The installer calls it as the unprivileged service user after SQLite initialization, using the existing master-key file. Argon2id hashing, account-existence guard, encrypted preferences and Super Administrator account creation commit in one transaction. Any existing account causes refusal. Browser setup returns 404 once an account exists, so even a leftover setup token is unusable. Installer bootstrap creates no token.
 
-Choosing deferred administrator creation retains token-protected `/setup`; read `/etc/mvm/bootstrap.token` locally as root and access setup over the tunnel or trusted TLS. No password summary is displayed for deferred creation. Deferred preferences are chosen again in browser setup.
+The native Bash wizard always creates the first administrator with hidden password confirmation. Browser-deferred setup is not offered.
 
 Without TLS, the actual listener and origin are `127.0.0.1:PORT` and `http://127.0.0.1:PORT`. The completion summary reports the verified local URL and an SSH forwarding command. TLS installation validates system trust, expiry, hostname/IP SAN and key pairing, requires an explicit assigned IPv4 bind address and explicit management-firewall review. It does not change firewall rules. Readiness connects to that bind address with the configured hostname for TLS verification, bypassing proxies without disabling certificate checks. Remote reachability is not implied. Supply a full-chain PEM; custom trust roots must already be installed in system trust. IPv6 wizard binds are currently unsupported.
 
-Ubuntu LTS 22.04+ and Debian 12+, amd64/arm64, root permission, systemd, disk space and a usable network route are required. Missing runtime packages trigger a package list and explicit confirmation before `apt-get update` and targeted installation. No full-system upgrade, Go SDK, Docker or external SQLite server is required. A local release needs no Internet download when prerequisites are present; HTTPS releases and APT fail explicitly on unavailable networks.
+Ubuntu LTS 22.04/24.04 and Debian 12/13, amd64/arm64, root permission, systemd, disk space and a usable network route are required. Missing runtime packages trigger a package list and explicit confirmation before `apt-get update` and targeted installation. No full-system upgrade, Go SDK, Docker or external SQLite server is required. A local release needs no Internet download when prerequisites are present; HTTPS releases and APT fail explicitly on unavailable networks.
 
 `sudo mvm` opens the management menu. Existing install/update/uninstall/start/stop/restart/status/logs/port/tls/reset-admin/backup/restore/rollback/version operations remain implemented. Port and TLS configuration changes now require verified database backups; credential resets use hidden input and confirmation. Fresh-install retries refuse existing or incomplete persistent state. Use reviewed repair/update procedures; no database or master key is regenerated on a retry. Failed readiness leaves files available for repair.
 
-Validation: installer Bash syntax and mocked installer suites passed, including wizard confirmation/redaction, port bounds/conflicts, loopback summary, prerequisite refusal, repeated staging, failed-update recovery, backups, rollback and uninstall preservation. Go suites `./cmd/mvmctl ./internal/storage/sqlite ./internal/http ./internal/security` passed outside the Windows sandbox (the sandbox denied existing backup/restore hard links). Added transactional bootstrap and offline command tests cover password length, preferences, existing-account protection and retries; existing HTTP tests cover setup-token authorization and closure. Actual systemd lifecycle and live trusted-TLS/remote firewall tests were not executed: no accessible disposable Ubuntu/Debian systemd environment is available. The disposable VM test now supplies random first-run credentials via stdin. Development Preview remains explicit; production acceptance and RouterOS/VPN interoperability remain outstanding.
+Validation: installer Bash syntax and mocked installer suites passed, including wizard confirmation/redaction, port bounds/conflicts, loopback summary, prerequisite refusal, repeated staging, failed-update recovery, backups, rollback and uninstall preservation. Go suites `./cmd/mvmctl ./internal/storage/sqlite ./internal/http ./internal/security` passed outside the Windows sandbox (the sandbox denied existing backup/restore hard links). Added transactional bootstrap and offline command tests cover password length, preferences, existing-account protection and retries; existing HTTP tests cover setup-token authorization and closure. Actual systemd lifecycle and live trusted-TLS/remote firewall tests were not executed: no accessible disposable Ubuntu/Debian systemd environment is available. The disposable VM test supplies random first-run credentials through an echo-disabled controlling PTY. Development Preview remains explicit; production acceptance and RouterOS/VPN interoperability remain outstanding.
 
 Changed source files for this task: `editions/linux/installer/{common,install,menu,wizard}.sh`, `cmd/mvmctl/{main.go,main_test.go}`, `internal/storage/sqlite/{bootstrap.go,bootstrap_test.go}`, `tests/installer/{run,wizard}.sh`, `tests/systemd/disposable-vm.sh`, `README.md`, `DELIVERY.md`, `editions/linux/README.md`, `docs/operations/installation.md`.

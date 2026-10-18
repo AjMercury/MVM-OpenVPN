@@ -2,10 +2,14 @@
 set -Eeuo pipefail
 root=$(cd -- "$(dirname -- "$0")/../.." && pwd)
 for file in "$root"/install.sh "$root"/editions/linux/installer/*.sh "$root"/scripts/package-linux.sh; do bash -n "$file"; done
-output=$(printf '0\n' | bash "$root/editions/linux/installer/install.sh")
+if [[ $(uname -s) == Linux ]]; then
+output=$(printf '0\n' | python3 "$root/tests/installer/terminal.py" bash "$root/editions/linux/installer/install.sh")
 grep -q 'Development Preview' <<< "$output"
 grep -q 'Real RouterOS and VPN client interoperability testing is incomplete' <<< "$output"
 grep -q '15. Panel Information' <<< "$output"
+else
+ printf 'SKIP: controlling-PTY menu integration requires Linux\n'
+fi
 # Unsupported platforms must stop before touching any host installation.
 mock=$(mktemp -d)
 trap 'rm -rf -- "$mock"' EXIT

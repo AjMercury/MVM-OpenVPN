@@ -1,3 +1,7 @@
+# Current release: 1.0.3
+
+[Stable v1.0.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.3) is published. Native Ubuntu lifecycle, anonymous public installation and signed artifacts pass [release validation](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165773); [quality/security checks](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165868) pass for both architectures. Native installation defaults to HTTP with optional ACME HTTPS and automatic renewal. See [HTTPS setup](docs/operations/https.md). Live public certificate issuance and real RouterOS/VPN interoperability remain unverified. The earlier delivery notes below are historical and do not describe current release availability.
+
 # Current delivery — Linux manager 1.0
 
 The stable Linux release path, security/operational fixes and offline Sigstore-root verification are described in [1.0.0 release notes](docs/releases/1.0.0.md). See [verification](docs/verification.md) for current local and CI evidence. RouterOS automation remains experimental and disabled by default. The sections below are historical preview delivery records; their statements about stable-release availability and current implementation version are superseded by the 1.0 documents.

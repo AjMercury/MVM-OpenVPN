@@ -2,7 +2,7 @@
 
 Linux management panel for MikroTik OpenVPN, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
 
-Version 1.0.3 adds optional Let's Encrypt HTTPS, certificate renewal and a grouped terminal manager. Validation is in progress; the published stable release is [v1.0.2](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.2).
+[v1.0.3 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.3), with optional Let's Encrypt HTTPS, automatic renewal and a grouped terminal manager. [Native Ubuntu lifecycle and public installation pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165773); [security/race and both architecture scans pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165868).
 
 **Release scope:** stable native Linux manager. RouterOS VPN automation remains experimental and disabled by default. Actual router/client interoperability, effective access restrictions and certificate offboarding still require an authorized lab. This release does not certify those workflows for production.
 

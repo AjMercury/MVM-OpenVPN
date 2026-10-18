@@ -4,7 +4,7 @@
 
 Local Go tests and vet pass. Linux Bash tests cover ACME private-IP refusal, public-IP short-lived profile, standalone/webroot arguments, changed-client hash refusal, issuance failure preservation, renewal/no-change behavior, preventing renewal from overwriting HTTP, failed TLS readiness rollback and terminal color/error-return behavior. Actual public CA issuance is not run: it requires an authorized public domain/IP and inbound challenge reachability. The implementation uses a pinned official acme.sh dependency; no 3x-ui source is copied.
 
-The historical 1.0.2 sections below describe its former HTTPS-only network default; 1.0.3 adds explicit network HTTP and optional ACME HTTPS. Release/public-install results will be recorded after publication.
+The historical 1.0.2 sections below describe its former HTTPS-only network default; 1.0.3 adds explicit network HTTP and optional ACME HTTPS. [v1.0.3 release run 39178165773](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165773) passes both native builds, vulnerability/installer gates, Ubuntu lifecycle, signed publication and anonymous public HTTP installation/login. [Tag quality run 39178165868](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165868) passes race/vulnerability/secret checks, terminal PTY tests and amd64/arm64 container scans. The stable non-draft release contains twelve assets, including both archives, SBOMs and the signed manifest.
 
 # 1.0.2 direct HTTPS and installer progress
 

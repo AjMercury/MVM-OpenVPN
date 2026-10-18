@@ -1,4 +1,10 @@
-# Two-edition verification — 2026-10-19
+# Authenticated Linux release verification — 2026-10-19
+
+[v0.2.0-preview.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.3) is published. [Release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251) passed both architecture builds, Linux Bash/Go tests, actual Ubuntu 24.04 amd64 systemd/SQLite administrator installation, same-version repair, update/rollback, key preservation, and standard uninstall. The separate public-install job passed the actual raw GitHub piped command without GitHub credentials, normal login, disabled browser setup, transcript redaction, valid attestation acceptance and real signed-manifest tamper rejection. See [detailed evidence and unresolved tests](operations/releases.md). No stable/production or RouterOS/VPN interoperability certification is claimed.
+
+The following source-only verification is preserved as historical context; its unavailable-host/release statements are superseded above.
+
+# Historical two-edition verification — 2026-10-19
 
 Current implementation: `0.2.0-dev`, Windows amd64, Go 1.27.2. Current results are in [DELIVERY](../DELIVERY.md). Full Linux-selected and Lite-selected Go suites, vet and YAML syntax checks pass. New shared repository contracts, both-engine mock OpenVPN workflows, SQLite crash/constraint/encryption/backup/restore tests, encrypted legacy migration success/failure/interruption tests, CLI recovery and token-protected bilingual setup tests pass. Git Bash menu/preflight/archive and mocked update/rollback/uninstall tests pass. Native Linux amd64/arm64 archives and Lite server cross-builds plus dependency SBOMs are produced locally. The artifact manifest records final bytes/hashes.
 

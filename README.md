@@ -4,7 +4,7 @@
 
 ## Quick Install — Linux
 
-**Preview installation is available:** [v0.2.0-preview.2](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.2) passed the [public one-line installation test](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170292378). **No stable Release exists**, so the default command below currently fails clearly. Use the explicit preview command for this Development Preview. See [release configuration and test evidence](docs/operations/releases.md).
+**Preview installation is available:** [v0.2.0-preview.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.3) passed the [public one-line installation test](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251). **No stable Release exists**, so the default command below currently fails clearly. Use the explicit preview command for this Development Preview. See [release configuration and test evidence](docs/operations/releases.md).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash
@@ -38,7 +38,7 @@ The installer checks platform, privileges and existing data; offers targeted APT
 
 Configure **Administrator Username and Password inside the Bash wizard**, with hidden password confirmation, port (8443 by default), English/Persian, timezone, management address and TLS/local access. The browser then opens the normal login page. Default access is loopback only; use the displayed SSH tunnel. Remote access requires trusted HTTPS and an explicit firewall review.
 
-**فارسی:** پیش‌نمایش `v0.2.0-preview.2` منتشر شده و نصب تک‌خطی روی Ubuntu 24.04 amd64 آزمایش شده است. دستور بالا را با `--channel preview` اجرا کنید و هشدار را تأیید کنید. نسخه پایدار هنوز منتشر نشده و دستور بدون انتخاب پیش‌نمایش با پیام روشن متوقف می‌شود. نام کاربری و رمز مدیر در ویزارد Bash با ورودی مخفی تعیین می‌شوند؛ سپس در مرورگر وارد صفحه عادی ورود شوید. دسترسی پیش‌فرض فقط محلی است؛ برای اتصال از تونل SSH نمایش‌داده‌شده استفاده کنید. مدیریت: `sudo mvm` و وضعیت سرویس: `sudo systemctl status mvm`.
+**فارسی:** پیش‌نمایش `v0.2.0-preview.3` منتشر شده و نصب تک‌خطی روی Ubuntu 24.04 amd64 آزمایش شده است. دستور بالا را با `--channel preview` اجرا کنید و هشدار را تأیید کنید. نسخه پایدار هنوز منتشر نشده و دستور بدون انتخاب پیش‌نمایش با پیام روشن متوقف می‌شود. نام کاربری و رمز مدیر در ویزارد Bash با ورودی مخفی تعیین می‌شوند؛ سپس در مرورگر وارد صفحه عادی ورود شوید. دسترسی پیش‌فرض فقط محلی است؛ برای اتصال از تونل SSH نمایش‌داده‌شده استفاده کنید. مدیریت: `sudo mvm` و وضعیت سرویس: `sudo systemctl status mvm`.
 
 This is the existing Go/Gin modular monolith, refactored as `0.2.0-dev`. Router writes remain disabled by default. No real router mutation or VPN-client interoperability test has been executed.
 

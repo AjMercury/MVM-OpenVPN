@@ -1,4 +1,10 @@
-# Delivery — 0.2.0-dev two-edition Development Preview
+# Current delivery — authenticated Linux preview installer
+
+Published to `master`; [v0.2.0-preview.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.3) contains real amd64/arm64 archives, metadata, SBOMs, checksum manifest and its GitHub OIDC/Sigstore attestation. [Release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251) passed both builds, Go/installer tests, actual Ubuntu 24.04 amd64 native install/same-version repair/update/rollback/uninstall, and anonymous public `curl | sudo bash` installation/login with real tamper rejection. Use the README's explicit preview command; no stable Release exists. Credentials are always created in the Bash wizard via hidden `/dev/tty` input. See [trust/configuration, full results and remaining gates](docs/operations/releases.md).
+
+The following describes the earlier source-only delivery. Its statements about unavailable releases and unexecuted systemd tests are historical and superseded by the results above. RouterOS/VPN interoperability, other Linux runtimes, actual missing-dependency APT and remote TLS/firewall testing remain outstanding.
+
+# Historical delivery — 0.2.0-dev two-edition Development Preview
 
 **WARNING: This application is currently a Development Preview. Real RouterOS and VPN client interoperability testing is incomplete. Production deployment is not recommended.**
 

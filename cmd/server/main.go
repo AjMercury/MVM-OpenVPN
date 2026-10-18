@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"log/slog"
 	"mikrotik-vpn-manager/internal/app"
@@ -18,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "1.0.0-dev"
+var version = "1.0.1-dev"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -46,7 +47,21 @@ func run(logger *slog.Logger) error {
 		if c.Cert != "" {
 			scheme = "https"
 		}
-		client := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: origin.Hostname()}}}
+		var roots *x509.CertPool
+		if c.TLSCAFile != "" {
+			roots, _ = x509.SystemCertPool()
+			if roots == nil {
+				roots = x509.NewCertPool()
+			}
+			pem, err := os.ReadFile(c.TLSCAFile)
+			if err != nil {
+				return err
+			}
+			if !roots.AppendCertsFromPEM(pem) {
+				return errors.New("invalid panel TLS CA file")
+			}
+		}
+		client := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: origin.Hostname(), RootCAs: roots}}}
 		if host == "" || host == "0.0.0.0" {
 			host = "127.0.0.1"
 		} else if host == "::" {

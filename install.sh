@@ -10,8 +10,10 @@ SIGNER_REPOSITORY=AjMercury/MVM-OpenVPN
 SIGSTORE_ROOT_COMMIT=63528388118c1002d1221321741159da24c256af
 SIGSTORE_ROOT_SHA256=6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66
 bootstrap_die() { printf 'MVM: %s\n' "$*" >&2; exit 1; }
+bootstrap_step() { printf '\n[MVM] %s\n' "$*" >&2; }
 fetch() {
- curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+ bootstrap_step "Downloading $(basename -- "$1")"
+ curl --fail --progress-bar --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
   --connect-timeout 15 --max-time 600 --retry 2 --max-filesize 536870912 --output "$2" "$1" || bootstrap_die 'GitHub API or asset download failed; no installation performed.'
 }
 bootstrap_platform() {
@@ -89,6 +91,7 @@ print(max(eligible,key=lambda r:r.get('published_at') or '')['tag_name'])
 PY
 }
 verify_manifest() {
+ bootstrap_step 'Preparing certificate trust and verifying release signature'
  # Fetch the independently pinned official root via GitHub, avoiding blocked TUF CDNs.
  fetch "https://raw.githubusercontent.com/sigstore/root-signing/$SIGSTORE_ROOT_COMMIT/targets/trusted_root.json" "$WORK/trusted-root.json"
  printf '%s  %s\n' "$SIGSTORE_ROOT_SHA256" "$WORK/trusted-root.json" | sha256sum --check --status \
@@ -103,6 +106,7 @@ PY
   --repo "$SIGNER_REPOSITORY" --cert-identity "https://github.com/$SIGNER_REPOSITORY/.github/workflows/release.yaml@refs/tags/$TAG" \
   --source-ref "refs/tags/$TAG" --deny-self-hosted-runners >"$WORK/verification.log" 2>&1 \
   || { cat "$WORK/verification.log" >&2; bootstrap_die 'Release attestation verification failed. No archive executed.'; }
+ bootstrap_step 'Release signature verified'
 }
 extract_payload() {
  python3 - "$WORK/$ASSET" "$WORK/payload" <<'PY'
@@ -145,12 +149,14 @@ bootstrap_main() {
  [[ $CHANNEL == stable || $CHANNEL == preview ]] || bootstrap_die 'Invalid channel.'
  [[ $ACTION == install || $ACTION == update || $ACTION == repair ]] || bootstrap_die 'Invalid action.'
  [[ -z $PIN || $PIN =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || bootstrap_die 'Invalid version tag.'
+ bootstrap_step 'Checking operating system and architecture'
  bootstrap_platform
  if [[ $ACTION == install ]]; then
   for path in /opt/mvm/current /etc/mvm/config.env /etc/mvm/master.key /var/lib/mvm/mvm.db /usr/local/bin/mvm /etc/systemd/system/mvm.service; do
    [[ ! -e $path && ! -L $path ]] || bootstrap_die 'Existing/incomplete installation detected. Use sudo mvm Update or Install / Repair; data retained.'
   done
  fi
+ bootstrap_step 'Checking download prerequisites'
  bootstrap_dependencies base
  WORK=$(mktemp -d /var/tmp/mvm-bootstrap-XXXXXXXX)
  trap bootstrap_cleanup EXIT
@@ -161,11 +167,13 @@ bootstrap_main() {
  fi
  TAG=$(select_release "$WORK/releases.json") || bootstrap_die "No eligible $CHANNEL release for $ARCH. For Development Preview use: bash -s -- --channel preview. No installation performed."
  VERSION=${TAG#v}; ASSET="mvm-linux-$ARCH-$VERSION.tar.gz"
+ bootstrap_step "Selected release $VERSION for $ARCH"
  if [[ $CHANNEL == preview ]]; then
   printf 'WARNING: Development Preview %s. Production deployment is not recommended.\n' "$VERSION"
   read -r -p 'Type INSTALL PREVIEW to continue: ' answer
   [[ $answer == 'INSTALL PREVIEW' ]] || bootstrap_die 'Preview declined.'
  fi
+ bootstrap_step 'Checking signature verification tools'
  bootstrap_dependencies
  local url="https://github.com/$REPOSITORY/releases/download/$TAG" digest
  fetch "$url/SHA256SUMS" "$WORK/SHA256SUMS"
@@ -181,6 +189,7 @@ PY
  ) || bootstrap_die 'Invalid signed manifest.'
  fetch "$url/$ASSET" "$WORK/$ASSET"
  printf '%s  %s\n' "$digest" "$WORK/$ASSET" | sha256sum --check --status || bootstrap_die 'Archive checksum mismatch.'
+ bootstrap_step 'Validating checksum and extracting verified installation package'
  extract_payload || bootstrap_die 'Unsafe or corrupt archive.'
  grep -qx "VERSION=$VERSION" "$WORK/payload/metadata.env" || bootstrap_die 'Version mismatch.'
  grep -qx "ARCH=$ARCH" "$WORK/payload/metadata.env" || bootstrap_die 'Architecture mismatch.'
@@ -188,6 +197,7 @@ PY
  [[ $CHANNEL != preview ]] || maturity=DevelopmentPreview
  grep -qx "MATURITY=$maturity" "$WORK/payload/metadata.env" || bootstrap_die 'Release maturity does not match selected channel.'
  if [[ $CHANNEL == preview ]]; then export MVM_ACCEPT_PREVIEW='I ACCEPT DEVELOPMENT PREVIEW'; fi
+ bootstrap_step 'Starting installation wizard'
  bash "$WORK/payload/editions/linux/installer/menu.sh" "$ACTION" "$WORK/$ASSET" "$digest" "$VERSION"
 }
 # Redirect only the function, leaving the pipe available to Bash's script parser.

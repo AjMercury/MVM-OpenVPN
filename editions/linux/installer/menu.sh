@@ -6,6 +6,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$SCRIPT_DIR/install.sh"
 . "$SCRIPT_DIR/update.sh"
 . "$SCRIPT_DIR/uninstall.sh"
+. "$SCRIPT_DIR/access.sh"
 # Real entry points require a terminal. Source-based unit tests exercise functions separately.
 if ! (: </dev/tty) 2>/dev/null; then die 'Interactive terminal required (/dev/tty); no unattended mode is offered.'; fi
 exec 0</dev/tty
@@ -20,7 +21,9 @@ command_run() {
   else update_panel "$@"; fi;;
  rollback) rollback_panel;;
  uninstall) uninstall_panel "$@";;
- start|stop|restart|status) root; systemctl "$command" mvm;;
+ start|stop|restart) root; systemctl "$command" mvm;;
+ status) root; systemctl --no-pager --full status mvm;;
+ access) access_panel "$@";;
  logs) root; journalctl -u mvm -f;;
  backup) preflight; backup_db "${1:-}";;
  restore)
@@ -45,6 +48,16 @@ command_run() {
   address=${MVM_LISTEN%:*}
   cp -p "$CONF/config.env" "$CONF/config.env.previous"
   sed -i "s|^MVM_LISTEN=.*|MVM_LISTEN=$address:$1|;s|^MVM_ORIGIN=.*|MVM_ORIGIN=$scheme://$host:$1|" "$CONF/config.env"
+  local old_port=${MVM_LISTEN##*:} alias aliases=
+  local -a origin_aliases
+  IFS=, read -r -a origin_aliases <<< "${MVM_ADDITIONAL_ORIGINS:-}"
+  for alias in "${origin_aliases[@]}"; do
+   [[ -n $alias ]] || continue
+   if [[ $alias == *":$old_port" ]]; then alias="${alias%:*}:$1"; fi
+   aliases+="${aliases:+,}$alias"
+  done
+  sed -i '/^MVM_ADDITIONAL_ORIGINS=/d' "$CONF/config.env"
+  printf 'MVM_ADDITIONAL_ORIGINS=%s\n' "$aliases" >> "$CONF/config.env"
   if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'Port change failed; previous configuration restored'; fi;;
   tls)
   preflight; load_config
@@ -57,12 +70,18 @@ command_run() {
   local tls_host=${3#https://}; tls_host=${tls_host%%:*}
   [[ $3 == "https://$tls_host:${MVM_LISTEN##*:}" ]] || die 'TLS origin must include current listener port'
   validate_tls "$1" "$2" "$tls_host"
+  local tls_bind=${MVM_LISTEN%:*}
+  if [[ $tls_bind == 127.0.0.1 ]]; then
+   tls_bind=$(detect_panel_ip)
+   [[ -n $tls_bind ]] || die 'Cannot detect a server IP for TLS'
+  fi
   backup_db >/dev/null
   local suffix; suffix=$(openssl rand -hex 12)
   install -o root -g mvm -m 640 "$1" "$CONF/tls/server-$suffix.crt"
   install -o root -g mvm -m 640 "$2" "$CONF/tls/server-$suffix.key"
   cp -p "$CONF/config.env" "$CONF/config.env.previous"
-  sed -i '/^MVM_TLS_CERT=/d;/^MVM_TLS_KEY=/d;/^MVM_ORIGIN=/d;/^MVM_DEV_HTTP=/d' "$CONF/config.env"
+  sed -i '/^MVM_TLS_CERT=/d;/^MVM_TLS_KEY=/d;/^MVM_TLS_CA_FILE=/d;/^MVM_ORIGIN=/d;/^MVM_ADDITIONAL_ORIGINS=/d;/^MVM_DEV_HTTP=/d' "$CONF/config.env"
+  sed -i "s|^MVM_LISTEN=.*|MVM_LISTEN=$tls_bind:${MVM_LISTEN##*:}|" "$CONF/config.env"
   printf 'MVM_TLS_CERT=%s\nMVM_TLS_KEY=%s\nMVM_ORIGIN=%s\nMVM_DEV_HTTP=false\n' "$CONF/tls/server-$suffix.crt" "$CONF/tls/server-$suffix.key" "$3" >> "$CONF/config.env"
   if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'TLS readiness failed; previous configuration restored'; fi;;
  reset-admin)
@@ -82,7 +101,7 @@ command_run() {
 if [[ $# -gt 0 ]]; then command_run "$@"; exit; fi
 while true; do
  printf '\n========================================\n MikroTik VPN Manager\n Installation & Management\n %s\n========================================\n%s\n' "$RELEASE_LABEL" "$WARNING"
- printf '1. Install / Repair\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n0. Exit\n'
+ printf '1. Install / Repair\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n16. Configure IP / Domain Access\n0. Exit\n'
  read -r -p 'Select an option: ' choice || exit
  case $choice in
  0) exit;;
@@ -93,6 +112,7 @@ while true; do
   10) read -r -p 'Certificate PEM path: ' cert; read -r -p 'Key PEM path: ' key; read -r -p 'HTTPS origin (trusted SAN, current port): ' origin; command_run tls "$cert" "$key" "$origin";;
  11) read -r -p 'Existing administrator username: ' username; command_run reset-admin "$username";;
  12) command_run backup;;13) read -r -p 'Backup path: ' path; command_run restore "$path";;14) command_run rollback;;15) command_run info;;
+ 16) read -r -p 'Server IP or domain: ' panel_host; command_run access "$panel_host";;
  *) printf 'Invalid selection\n';;
  esac
 done

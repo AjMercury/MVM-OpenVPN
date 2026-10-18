@@ -23,6 +23,7 @@ printf 'preserved key\n' > "$CONF/master.key"
 preflight(){ :; }
 load_config(){ :; }
 preview_confirm(){ :; }
+install_service_unit(){ printf '%s\n' "$1" >> "$tmp/unit-updates"; }
 stage_release(){
  TARGET="$BASE/releases/$3"
  mkdir -p "$TARGET"
@@ -43,6 +44,11 @@ update_panel ignored ignored 2
 cmp "$DATA/mvm.db" "$(tail -n 1 "$BASE/recovery")"
 rollback_panel
 [[ $(readlink -f "$BASE/current") == "$BASE/releases/1" ]]
+printf 'VERSION=1.0.0\nSCHEMA=1\n' > "$BASE/releases/1/metadata.env"
+MVM_TLS_CA_FILE=/example/automatic.crt
+if (rollback_panel); then echo 'Incompatible automatic TLS rollback accepted'; exit 1; fi
+[[ $(readlink -f "$BASE/current") == "$BASE/releases/1" ]]
+MVM_TLS_CA_FILE=
 if ( update_panel ignored ignored broken ); then printf 'Failed update reported success\n' >&2; exit 1; fi
 [[ $(readlink -f "$BASE/current") == "$BASE/releases/1" ]]
 grep -qx 'preserved key' "$CONF/master.key"

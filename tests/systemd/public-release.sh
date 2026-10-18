@@ -13,17 +13,24 @@ release_tag=${MVM_TEST_RELEASE_TAG:-}
 release_channel=stable
 if [[ $release_tag == *-* || -z $release_tag ]]; then release_channel=preview; fi
 # Python keeps the password out of process arguments, environment and logs.
-python3 - "$testdir/password" "$release_channel" <<'PY' | python3 "$root/tests/installer/terminal.py" bash -o pipefail -c \
+python3 - "$testdir/password" "$release_channel" "${MVM_TEST_DIRECT_HTTPS:-no}" <<'PY' | python3 "$root/tests/installer/terminal.py" bash -o pipefail -c \
  'curl -fsSL https://raw.githubusercontent.com/AjMercury/MvM-OpenVPN/master/install.sh | sudo bash -s -- --channel "$1" ${2:+--version "$2"}' _ "$release_channel" "$release_tag" > "$testdir/output"
 import pathlib,sys
 p=pathlib.Path(sys.argv[1]).read_text().strip()
 if sys.argv[2]=='preview': print('INSTALL PREVIEW')
-print(f'8443\nlocalhost\nrelease-owner\n{p}\n{p}\nUTC\nen\nlocal')
+if sys.argv[3]=='YES': print(f'8443\n\nrelease-owner\n{p}\n{p}\nUTC\nen\n')
+else: print(f'8443\nlocalhost\nrelease-owner\n{p}\n{p}\nUTC\nen\nlocal')
 PY
 grep -q 'Installation Complete' "$testdir/output"
 grep -q 'Status:       RUNNING' "$testdir/output"
+grep -q '\[MVM\] Checking operating system and architecture' "$testdir/output"
+if [[ ${MVM_TEST_DIRECT_HTTPS:-no} == YES ]]; then grep -q '\[MVM\] Initializing the encrypted SQLite database' "$testdir/output"; fi
 if grep -Fq -f "$testdir/password" "$testdir/output"; then echo 'Credential leaked'; exit 1; fi
-python3 - "$testdir/password" <<'PY'
+if [[ ${MVM_TEST_DIRECT_HTTPS:-no} == YES ]]; then
+ panel_ip=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++)if($i=="src"){print $(i+1);exit}}')
+ python3 "$root/tests/systemd/direct-access.py" "$panel_ip" release-owner < "$testdir/password"
+else
+ python3 - "$testdir/password" <<'PY'
 import json,pathlib,sys,urllib.request,urllib.error
 password=pathlib.Path(sys.argv[1]).read_text().strip()
 request=urllib.request.Request('http://127.0.0.1:8443/login',data=json.dumps({'username':'release-owner','password':password}).encode(),headers={'Origin':'http://127.0.0.1:8443','Content-Type':'application/json'})
@@ -33,6 +40,7 @@ try: urllib.request.urlopen('http://127.0.0.1:8443/setup')
 except urllib.error.HTTPError as exc: assert exc.code==404
 else: raise SystemExit('Browser setup remained enabled')
 PY
+fi
 systemctl is-active --quiet mvm
 runuser -u mvm -- env MVM_MASTER_KEY_FILE=/etc/mvm/master.key /opt/mvm/current/mvmctl check /var/lib/mvm/mvm.db
 version=$(sed -n 's/^VERSION=//p' /opt/mvm/current/metadata.env)

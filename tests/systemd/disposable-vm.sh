@@ -16,9 +16,14 @@ trap 'rm -rf -- "$payload"' EXIT
 tar -xzf "$archive" -C "$payload"
 # Random test credential stays on stdin and is never printed.
 secret=$(openssl rand -base64 24)
-printf '8443\nlocalhost\nvm-owner\n%s\n%s\nUTC\nen\nlocal\n' "$secret" "$secret" | python3 tests/installer/terminal.py bash "$payload/editions/linux/installer/install.sh" install "$archive" "$digest" "$test_version"
+printf '8443\n\nvm-owner\n%s\n%s\nUTC\nen\n\n' "$secret" "$secret" | python3 tests/installer/terminal.py bash "$payload/editions/linux/installer/install.sh" install "$archive" "$digest" "$test_version"
+panel_ip=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++)if($i=="src"){print $(i+1);exit}}')
+printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
+printf '\n' | python3 tests/installer/terminal.py mvm access panel.example.test
+printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
 unset secret
 systemd-analyze verify /etc/systemd/system/mvm.service
+[[ $(systemctl show mvm -p Description --value) == 'MikroTik VPN Manager' ]]
 systemctl is-enabled --quiet mvm
 systemctl stop mvm
 ! systemctl is-active --quiet mvm

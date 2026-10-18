@@ -18,7 +18,9 @@ type Config struct {
 	Master                               []byte
 	Allowed                              []netip.Prefix
 	TrustedProxies                       []string
+	AdditionalOrigins                    []string
 	Mutations, Dev, ProxyTLS             bool
+	TLSCAFile                            string
 	Timeout                              time.Duration
 }
 
@@ -26,6 +28,7 @@ func Load() (Config, error) {
 	c := Config{Address: env("MVM_LISTEN", "127.0.0.1:8080"), Database: env("MVM_DATABASE", defaultDatabase()), Origin: env("MVM_ORIGIN", "https://localhost:8443"), Cert: os.Getenv("MVM_TLS_CERT"), Key: os.Getenv("MVM_TLS_KEY"), Mutations: os.Getenv("MVM_ALLOW_MUTATIONS") == "true", Dev: os.Getenv("MVM_DEV_HTTP") == "true", Timeout: 20 * time.Second}
 	var e error
 	c.ProxyTLS = os.Getenv("MVM_PROXY_TLS") == "true"
+	c.TLSCAFile = os.Getenv("MVM_TLS_CA_FILE")
 	if raw := os.Getenv("MVM_TRUSTED_PROXIES"); raw != "" {
 		for _, value := range strings.Split(raw, ",") {
 			value = strings.TrimSpace(value)
@@ -54,8 +57,18 @@ func Load() (Config, error) {
 		return c, errors.New("MVM_MASTER_KEY must be a base64-encoded random 32-byte key")
 	}
 	u, e := url.Parse(c.Origin)
-	if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || u.Scheme != "https" && !(c.Dev && u.Scheme == "http") {
-		return c, errors.New("MVM_ORIGIN must be an HTTPS origin (or explicit development HTTP)")
+	if e != nil || !validOrigin(u) || u.Scheme != "https" && !(c.Dev && u.Scheme == "http") {
+		return c, errors.New("MVM_ORIGIN must use HTTPS or loopback development HTTP")
+	}
+	if raw := os.Getenv("MVM_ADDITIONAL_ORIGINS"); raw != "" {
+		for _, origin := range strings.Split(raw, ",") {
+			origin = strings.TrimSpace(origin)
+			alias, err := url.Parse(origin)
+			if err != nil || !validOrigin(alias) || alias.Scheme != u.Scheme {
+				return c, errors.New("additional origins must be exact origins using the panel scheme")
+			}
+			c.AdditionalOrigins = append(c.AdditionalOrigins, origin)
+		}
 	}
 	if c.Dev {
 		h, _, e := net.SplitHostPort(c.Address)
@@ -80,6 +93,9 @@ func Load() (Config, error) {
 		c.Timeout = time.Duration(n) * time.Second
 	}
 	return c, nil
+}
+func validOrigin(u *url.URL) bool {
+	return u != nil && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && u.Path == "" && u.Opaque == "" && (u.Scheme == "http" || u.Scheme == "https")
 }
 func env(k, d string) string {
 	if v := os.Getenv(k); v != "" {

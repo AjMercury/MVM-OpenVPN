@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 update_panel() {
+ step 'Checking the existing installation before update'
  preflight
  load_config
  preview_confirm
@@ -17,15 +18,23 @@ update_panel() {
  # Both old and new binaries must declare the same supported schema. Unknown schema aborts.
  grep -qx 'SCHEMA=1' "$old/metadata.env" || die 'Old schema metadata unsupported'
  systemctl stop mvm
+ step 'Creating and verifying a database backup'
  if ! backup=$(backup_db); then systemctl start mvm; die 'Verified backup failed; update aborted'; fi
  if ! runuser -u mvm -- env MVM_MASTER_KEY_FILE="$CONF/master.key" "$TARGET/mvmctl" check "$DATA/mvm.db"; then
   systemctl start mvm; die 'Target database compatibility check failed'
  fi
  printf '%s\n%s\n' "$old" "$backup" > "$BASE/recovery"
+ if ! install_service_unit "$TARGET"; then
+  install_service_unit "$old" || true
+  systemctl start mvm
+  die 'Service unit update failed; previous installation retained'
+ fi
  switch_release "$TARGET"
+ step 'Starting the updated service'
  if systemctl start mvm && ready; then printf 'Update ready: %s\n' "$TARGET"; else
   systemctl stop mvm || true
   switch_release "$old"
+  install_service_unit "$old"
   systemctl start mvm && ready || die 'Update failed and old service failed readiness; recovery record preserved'
   die 'Update failed; previous schema-compatible release restored'
  fi
@@ -37,6 +46,9 @@ rollback_panel() {
  mapfile -t recovery < "$BASE/recovery"
  local old=${recovery[0]} snapshot=${recovery[1]}
  [[ $old == "$BASE/releases/"* && -d $old && $snapshot == "$BACKUPS/"* ]] || die 'Invalid recovery record'
+ if [[ -n ${MVM_TLS_CA_FILE:-} ]] && grep -Eq '^VERSION=(0\.|1\.0\.0$)' "$old/metadata.env"; then
+  die 'Previous release does not support automatic HTTPS readiness. Configure a system-trusted certificate before rolling back; current service retained.'
+ fi
  # Current migration contract is schema 1 only. Never downgrade across unknown schemas.
  grep -qx 'SCHEMA=1' "$old/metadata.env" || die 'Incompatible rollback schema'
  systemctl stop mvm
@@ -45,6 +57,7 @@ rollback_panel() {
   die 'Schema mismatch. Service left stopped. Restore the verified pre-update snapshot using the recovery runbook.'
  fi
  switch_release "$old"
+ install_service_unit "$old"
  systemctl start mvm
  ready || die 'Rollback readiness failed'
  printf 'Rollback ready: %s\n' "$old"

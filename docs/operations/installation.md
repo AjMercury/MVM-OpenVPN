@@ -19,6 +19,8 @@ Configure:
 | MVM_ALLOW_MUTATIONS | false default; true only with authorization and reviewed Apply |
 | MVM_ROUTER_TIMEOUT_SECONDS | 1–55; default 20 |
 | MVM_DEV_HTTP | explicit loopback-only development HTTP |
+| MVM_TLS_CA_FILE | explicit local certificate trust for panel readiness and health checks |
+| MVM_ADDITIONAL_ORIGINS | comma-separated exact same-scheme origins for IP/domain access |
 | MVM_PROXY_TLS | explicit HTTP backend behind a verified TLS proxy only; set by Compose, never publish the raw app port |
 
 See README for exact build/bootstrap/Compose commands. Never use sample passwords or a newly generated master key for an existing database. For native Linux installation, use the installer wizard and protected-stdin `mvmctl bootstrap-admin` operation. The native wizard always creates the administrator in Bash; browser setup closes after account creation. Create additional roles after sign-in in Settings → Accounts. Account passwords and portal accounts are independent of PPP credentials.
@@ -48,7 +50,7 @@ sudo bash editions/linux/installer/install.sh install /absolute/path/mvm-linux-a
 
 Use arm64 on the ARM implementation targets. See [authenticated release delivery](releases.md) for the self-contained root bootstrap, release pipeline, trust policy and publication gates. Low-level local archives still require an independently trusted digest. A controlling terminal is mandatory. No unattended installation workflow is provided.
 
-The wizard collects port (default 8443, range 1024–65535, conflict check), hostname/management IPv4 address, username, hidden password and confirmation, timezone, English/Persian, and local-only or trusted TLS access. Use a unique passphrase of 14–233 bytes. Passwords are not arguments, environment variables, configuration values, logs, or summary output. No default credentials exist. `mvmctl bootstrap-admin DB USERNAME TIMEZONE en|fa` reads the exact password from protected stdin with no terminating newline. The installer calls it as the unprivileged service user after SQLite initialization, using the existing master-key file. Argon2id hashing, account-existence guard, encrypted preferences and Super Administrator account creation commit in one transaction. Any existing account causes refusal. Browser setup returns 404 once an account exists, so even a leftover setup token is unusable. Installer bootstrap creates no token.
+The wizard collects port (default 8443, range 1024–65535, conflict check), hostname/management IPv4 address, username, hidden password and confirmation, timezone, English/Persian, and automatic HTTPS, an existing trusted certificate or optional local-only access. Use a unique passphrase of 14–233 bytes. Passwords are not arguments, environment variables, configuration values, logs, or summary output. No default credentials exist. `mvmctl bootstrap-admin DB USERNAME TIMEZONE en|fa` reads the exact password from protected stdin with no terminating newline. The installer calls it as the unprivileged service user after SQLite initialization, using the existing master-key file. Argon2id hashing, account-existence guard, encrypted preferences and Super Administrator account creation commit in one transaction. Any existing account causes refusal. Browser setup returns 404 once an account exists, so even a leftover setup token is unusable. Installer bootstrap creates no token.
 
 The Bash wizard always creates the first administrator. Browser-deferred setup is not offered by the native installer.
 

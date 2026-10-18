@@ -150,7 +150,7 @@ func (h *Server) headers(c *gin.Context) {
 	c.Header("X-Frame-Options", "DENY")
 	c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 	c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'")
-	if !h.App.Config.Dev {
+	if h.secureCookies() {
 		c.Header("Strict-Transport-Security", "max-age=31536000")
 	}
 	start := time.Now()
@@ -200,13 +200,28 @@ func (h *Server) csrf(c *gin.Context) {
 	if provided == "" {
 		provided = c.PostForm("csrf")
 	}
-	if c.GetHeader("Origin") != h.App.Config.Origin || subtle.ConstantTimeCompare([]byte(provided), []byte(s.CSRF)) != 1 {
+	if !h.allowedOrigin(c.GetHeader("Origin")) || subtle.ConstantTimeCompare([]byte(provided), []byte(s.CSRF)) != 1 {
 		h.fail(c, 403, errors.New("CSRF validation failed"))
 		c.Abort()
 		return
 	}
 	c.Next()
 }
+func (h *Server) allowedOrigin(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	if origin == h.App.Config.Origin {
+		return true
+	}
+	for _, alias := range h.App.Config.AdditionalOrigins {
+		if origin == alias {
+			return true
+		}
+	}
+	return false
+}
+func (h *Server) secureCookies() bool { return !h.App.Config.Dev }
 func (h *Server) fail(c *gin.Context, status int, e error) {
 	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") || c.GetHeader("Accept") == "application/json" {
 		c.JSON(status, gin.H{"error": gin.H{"message": e.Error(), "request_id": c.Writer.Header().Get("X-Request-ID")}})
@@ -221,7 +236,7 @@ func (h *Server) render(c *gin.Context, status int, data gin.H) {
 	}
 	if q := c.Query("lang"); q == "en" || q == "fa" {
 		lang = q
-		c.SetCookie("mvm_language", q, 31536000, "/", "", !h.App.Config.Dev, true)
+		c.SetCookie("mvm_language", q, 31536000, "/", "", h.secureCookies(), true)
 	}
 	data["Lang"] = lang
 	data["Dir"] = "ltr"
@@ -271,7 +286,7 @@ func (h *Server) throttledLimit(key string, limit int) bool {
 	return false
 }
 func (h *Server) login(c *gin.Context) {
-	if c.GetHeader("Origin") != h.App.Config.Origin {
+	if !h.allowedOrigin(c.GetHeader("Origin")) {
 		h.Log.Warn("login origin rejected", "origin", c.GetHeader("Origin"), "expected_origin", h.App.Config.Origin, "fetch_site", c.GetHeader("Sec-Fetch-Site"))
 		h.fail(c, 403, errors.New("invalid login origin"))
 		return
@@ -336,7 +351,7 @@ func (h *Server) login(c *gin.Context) {
 	delete(h.attempts, accountKey)
 	h.mu.Unlock()
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("mvm_session", token, 8*3600, "/", "", !h.App.Config.Dev, true)
+	c.SetCookie("mvm_session", token, 8*3600, "/", "", h.secureCookies(), true)
 	_ = h.App.Audit(found.ID, "auth.login", "", "success")
 	next := "/"
 	if c.PostForm("next") == "delivery" {
@@ -351,7 +366,7 @@ func (h *Server) logout(c *gin.Context) {
 		return
 	}
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie("mvm_session", "", -1, "/", "", !h.App.Config.Dev, true)
+	c.SetCookie("mvm_session", "", -1, "/", "", h.secureCookies(), true)
 	h.success(c, gin.H{"ok": true}, "/")
 }
 func decode(c *gin.Context, out any) error {

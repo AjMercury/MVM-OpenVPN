@@ -41,7 +41,7 @@ func (h *Server) setup(c *gin.Context) {
 		}
 		return
 	}
-	if c.GetHeader("Origin") != h.App.Config.Origin {
+	if !h.allowedOrigin(c.GetHeader("Origin")) {
 		h.fail(c, 403, errors.New("invalid setup origin"))
 		return
 	}

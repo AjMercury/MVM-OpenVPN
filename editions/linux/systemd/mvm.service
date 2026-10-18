@@ -1,5 +1,5 @@
 [Unit]
-Description=MikroTik VPN Manager (Development Preview)
+Description=MikroTik VPN Manager
 Wants=network-online.target
 After=network-online.target
 

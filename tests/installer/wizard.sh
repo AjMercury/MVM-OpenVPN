@@ -11,6 +11,7 @@ if validate_password 'a long secure passphrase' 'a different passphrase'; then e
 ss(){ printf 'LISTEN 0 4096 127.0.0.1:8443\n'; }
 if port_available 8443; then exit 1; fi
 ss(){ :; }; port_available 8443
+detect_panel_ip(){ printf '172.16.180.58\n'; }
 # The wizard keeps HTTP local, consumes hidden password input, and redacts it in output.
 validate_zone(){ [[ $1 == UTC ]]; }
 output=$(installation_wizard <<'INPUT'
@@ -49,3 +50,33 @@ printf 'PASS: wizard input, confirmation, redaction, port conflicts, loopback, c
 if (openssl(){ if [[ $* == *subjectAltName* ]]; then printf 'CN only'; fi; }; validate_tls cert key panel.example.test); then exit 1; fi
 if (openssl(){ if [[ $* == *subjectAltName* ]]; then printf 'DNS:panel.example.test'; elif [[ $1 == verify ]]; then return 1; fi; }; validate_tls cert key panel.example.test); then exit 1; fi
 printf 'PASS: approved targeted prerequisites and TLS SAN/trust refusal\n'
+(
+ unset -f command apt-get
+ validate_zone(){ [[ $1 == UTC ]]; }
+ for host in '' panel.example.test; do
+  output=$(installation_wizard <<INPUT
+8443
+$host
+owner
+unique long secret passphrase
+unique long secret passphrase
+UTC
+en
+
+INPUT
+  printf '%s %s %s' "$PANEL_BIND" "$PANEL_ORIGIN" "$PANEL_ADDITIONAL_ORIGINS")
+  [[ $output == *'0.0.0.0 https://'* && $output != *'unique long secret passphrase'* ]]
+  if [[ -z $host ]]; then [[ $output == *'https://172.16.180.58:8443'* ]];
+  else [[ $output == *'https://panel.example.test:8443 https://172.16.180.58:8443'* ]]; fi
+ done
+)
+printf 'PASS: default direct IP and simultaneous domain/IP HTTPS without localhost or manual certificate prompts\n'
+(
+ ip(){ printf '2: eth0 inet 198.51.100.22/24 scope global eth0\n3: eth1 inet 203.0.113.29/24 scope global eth1\n'; }
+ PANEL_HOST=198.51.100.22; PANEL_PORT=9443
+ configure_direct_access 198.51.100.22
+ [[ $PANEL_ORIGIN == https://198.51.100.22:9443 && $PANEL_BIND == 0.0.0.0 ]]
+ [[ $PANEL_ADDITIONAL_ORIGINS == https://203.0.113.29:9443 ]]
+ [[ $PANEL_ORIGIN != *172.16.180.58* && $PANEL_ADDITIONAL_ORIGINS != *172.16.180.58* ]]
+)
+printf 'PASS: different server and secondary interface IPs are discovered dynamically\n'

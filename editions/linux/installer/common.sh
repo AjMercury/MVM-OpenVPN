@@ -15,6 +15,7 @@ if [[ -f $(dirname -- "${BASH_SOURCE[0]}")/../../../metadata.env ]] && grep -qx 
  WARNING='Stable Linux manager. RouterOS VPN automation remains experimental and disabled by default; live router and VPN client validation is pending.'
 fi
 die() { printf '%s\n' "$*" >&2; exit 1; }
+step() { printf '\n[MVM] %s\n' "$*" >&2; }
 root() { [[ $EUID == 0 ]] || die 'Run with sudo.'; }
 installation_state() {
  if [[ -L $BASE/current && -f $CONF/config.env && -s $CONF/master.key && -f $DATA/mvm.db ]]; then printf 'installed\n'
@@ -66,16 +67,28 @@ load_config() {
  else [[ ${MVM_LISTEN:-} == 127.0.0.1:* && ${MVM_DEV_HTTP:-} == true ]] || die 'HTTP must bind loopback'; fi
 }
 ctl() { runuser -u mvm -- env MVM_MASTER_KEY_FILE="$CONF/master.key" "$BASE/current/mvmctl" "$@"; }
+install_service_unit() {
+ install -m 644 "$1/editions/linux/systemd/mvm.service" /etc/systemd/system/mvm.service || return
+ systemctl daemon-reload
+}
 ready() {
+ step 'Waiting for the panel service to become ready'
  local origin
+ local -a trust_args=()
+ local ca_file
+ ca_file=$(sed -n 's/^MVM_TLS_CA_FILE=//p' "$CONF/config.env")
+ [[ -z $ca_file ]] || trust_args=(--cacert "$ca_file")
  origin=$(sed -n 's/^MVM_ORIGIN=//p' "$CONF/config.env")
  for ((i=0;i<30;i++)); do
   local host port bind
   host=${origin#*://}; host=${host%:*}; port=${origin##*:}
   bind=$(sed -n 's/^MVM_LISTEN=//p' "$CONF/config.env"); bind=${bind%:*}
-  if systemctl is-active --quiet mvm && curl --noproxy '*' --resolve "$host:$port:$bind" --fail --silent --max-time 2 "${origin}/readyz" >/dev/null; then return 0; fi
+  [[ $bind != 0.0.0.0 ]] || bind=127.0.0.1
+  if systemctl is-active --quiet mvm && curl --noproxy '*' "${trust_args[@]}" --resolve "$host:$port:$bind" --fail --silent --max-time 2 "${origin}/readyz" >/dev/null; then printf ' ready\n' >&2; return 0; fi
+  printf '.' >&2
   sleep 1
  done
+ printf '\n' >&2
  return 1
 }
 preview_confirm() {
@@ -93,6 +106,7 @@ preview_confirm() {
 }
 # Digest must come through an authenticated independent channel. Never trust an adjacent untrusted checksum.
 stage_release() {
+ step 'Verifying and staging the release archive'
  [[ $# == 3 ]] || die 'Usage: mvm install|update ARCHIVE_OR_HTTPS_URL TRUSTED_SHA256 VERSION'
  local source=$1 digest=$2 version=$3
  [[ $digest =~ ^[a-fA-F0-9]{64}$ && $version =~ ^[0-9][a-zA-Z0-9._-]{0,63}$ ]] || die 'Invalid digest/version'

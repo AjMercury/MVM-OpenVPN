@@ -45,3 +45,28 @@ func TestTrustedProxyConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectHTTPSAndExactOrigins(t *testing.T) {
+	t.Setenv("MVM_MASTER_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)))
+	t.Setenv("MVM_DEV_HTTP", "false")
+	t.Setenv("MVM_LISTEN", "172.16.180.58:8443")
+	t.Setenv("MVM_ORIGIN", "http://172.16.180.58:8443")
+	if _, err := Load(); err == nil {
+		t.Fatal("remote HTTP enabled implicitly")
+	}
+	t.Setenv("MVM_ORIGIN", "https://172.16.180.58:8443")
+	t.Setenv("MVM_ADDITIONAL_ORIGINS", "https://panel.example.test:8443")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Dev || len(c.AdditionalOrigins) != 1 {
+		t.Fatal("direct HTTPS config missing")
+	}
+	for _, alias := range []string{"http://panel.example.test:8443", "https://user:pass@panel.example.test:8443", "https://panel.example.test:8443/path", "https://panel.example.test:8443?"} {
+		t.Setenv("MVM_ADDITIONAL_ORIGINS", alias)
+		if _, err := Load(); err == nil {
+			t.Fatal("unsafe alias", alias)
+		}
+	}
+}

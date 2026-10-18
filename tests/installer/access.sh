@@ -11,6 +11,7 @@ preflight(){ :; }
 load_config(){ MVM_LISTEN=127.0.0.1:8443; }
 backup_db(){ cp "$CONF/config.env" "$tmp/backup"; }
 detect_panel_ip(){ printf '172.16.180.58\n'; }
+ip(){ printf '2: eth0 inet 172.16.180.58/24 scope global eth0\n'; }
 systemctl(){ :; }
 chown(){ :; }
 generate_panel_tls(){ PANEL_CERT="$CONF/test.crt"; PANEL_KEY="$CONF/test.key"; }

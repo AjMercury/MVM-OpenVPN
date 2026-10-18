@@ -1,4 +1,4 @@
-# 1.0.1 direct HTTPS and installer progress
+# 1.0.2 direct HTTPS and installer progress
 
 No server IP is hardcoded. The wizard detects the primary and other assigned IPv4 addresses, generates a private HTTPS certificate covering those IPs plus an optional domain, and displays its fingerprint for browser trust. Network cookies remain Secure; plaintext HTTP remains loopback-only. Existing installations use `sudo mvm access` after update, with automatic address detection and a verified backup. Installation phases and download progress are visible without logging passwords or keys.
 

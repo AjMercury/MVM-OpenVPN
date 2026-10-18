@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/AjMercury/MVM-OpenVPN/master/instal
 
 The default command selects the newest stable release. For a preview, explicitly append `-s -- --channel preview` to `sudo bash`. Stable and preview channels never silently fall back to one another. An interactive SSH terminal is required.
 
-The wizard asks for the administrator username and hidden password, port, language and timezone. No default password is shipped. From 1.0.1, default access uses the detected server IP or supplied domain on port 8443. Automatic HTTPS generates a certificate for this server IP and any supplied domain; verify/import the displayed certificate fingerprint on first browser access. Local-only access is optional. The installer does not modify your firewall or existing web server.
+The wizard asks for the administrator username and hidden password, port, language and timezone. No default password is shipped. From 1.0.2, default access uses the detected server IP or supplied domain on port 8443. Automatic HTTPS generates a certificate for this server IP and any supplied domain; verify/import the displayed certificate fingerprint on first browser access. Local-only access is optional. The installer does not modify your firewall or existing web server.
 
 Release signatures are verified before executing downloaded code. The official Sigstore trust root is pinned by commit and SHA-256 and fetched through GitHub; the blocked Sigstore TUF CDN is not required. No GitHub login is needed. Checksums alone are not accepted as a replacement for provenance verification. See [release trust and troubleshooting](docs/operations/releases.md).
 
@@ -28,7 +28,7 @@ journalctl -u mvm -f
 
 For an existing preview installation, use `sudo mvm` to update with the existing database and master key. An older preview manager may select its preview channel; use the new bootstrap with `--action update` to explicitly select stable. Do not delete data or regenerate keys to retry an installation.
 
-To move an existing localhost-only installation to direct IP access after upgrading to 1.0.1, run `sudo mvm access SERVER_IP_OR_DOMAIN` (or menu option 16). This preserves accounts and takes a verified backup before changing the listener. If a domain is supplied, the detected server IP is also accepted for HTTPS access. Firewall rules remain under your control.
+To move an existing localhost-only installation to direct IP access after upgrading to 1.0.2, run `sudo mvm access SERVER_IP_OR_DOMAIN` (or menu option 16). This preserves accounts and takes a verified backup before changing the listener. If a domain is supplied, the detected server IP is also accepted for HTTPS access. Firewall rules remain under your control.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AjMercury/MVM-OpenVPN/master/install.sh | sudo bash -s -- --action update

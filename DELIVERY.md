@@ -1,4 +1,8 @@
-# Current delivery — authenticated Linux preview installer
+# Current delivery — Linux manager 1.0
+
+The stable Linux release path, security/operational fixes and offline Sigstore-root verification are described in [1.0.0 release notes](docs/releases/1.0.0.md). See [verification](docs/verification.md) for current local and CI evidence. RouterOS automation remains experimental and disabled by default. The sections below are historical preview delivery records; their statements about stable-release availability and current implementation version are superseded by the 1.0 documents.
+
+# Historical delivery — authenticated Linux preview installer
 
 Published to `master`; [v0.2.0-preview.3](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v0.2.0-preview.3) contains real amd64/arm64 archives, metadata, SBOMs, checksum manifest and its GitHub OIDC/Sigstore attestation. [Release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251) passed both builds, Go/installer tests, actual Ubuntu 24.04 amd64 native install/same-version repair/update/rollback/uninstall, and anonymous public `curl | sudo bash` installation/login with real tamper rejection. Use the README's explicit preview command; no stable Release exists. Credentials are always created in the Bash wizard via hidden `/dev/tty` input. See [trust/configuration, full results and remaining gates](docs/operations/releases.md).
 

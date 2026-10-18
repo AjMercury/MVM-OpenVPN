@@ -6,8 +6,8 @@ The 1.0 release stabilizes the native Linux manager. OpenVPN automation remains 
 
 * No authorized RouterOS CHR/hardware lab or real VPN client was provided. Server/sign/export commands, imported profile, tunnel establishment, allowed/forbidden access, effective offboarding and live rollback are NOT RUN. The opt-in plan is in `tests/lab/README.md`.
 * Docker Engine/Compose is absent. Dockerfile/Compose/CI definitions are supplied; actual image build, container health, reverse-proxy deployment, OCI/SBOM and container scans are NOT RUN. Linux binaries can be cross-compiled; that does not establish RouterOS Container support.
-* The Windows host has no C compiler/cgo configuration. Race testing is NOT RUN locally; CI includes Linux race detection.
-* The Go vulnerability scanner was downloaded/run, but `https://vuln.go.dev/index/modules.json.gz` returned HTTP 403. This is **BLOCKED**, not a clean vulnerability result. CI must obtain the advisory database and pass scans before release.
+* The Windows host has no C compiler/cgo configuration. Race testing is NOT RUN locally; Linux CI race tests pass for the 1.0 source.
+* Local advisory-database access is unavailable. Linux CI vulnerability scanning passes after upgrading quic-go to 0.59.1; release builds repeat that gate. This is limited to that scanner/database snapshot and is not a general security certification.
 * The requested Meet AJ article could not be retrieved. Official MikroTik docs were consulted, and commands are guarded; no claim is made that the unavailable article was followed in detail.
 
 ## Application work still pending

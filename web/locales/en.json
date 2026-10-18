@@ -167,7 +167,7 @@
   "scope": "Router scopes",
   "createAccount": "Create account",
   "scopeHelp": "Comma-separated inventory router IDs. Empty scopes grant no router access; super administrators have global access.",
-  "footer": "MikroTik VPN Manager · Development preview · Router and client lab verification pending",
+  "footer": "MikroTik VPN Manager · RouterOS automation experimental · Router and client lab verification pending",
   "lastSync": "Last observation",
   "driftDetected": "Change detected",
   "noRouters": "Your first router starts here.",

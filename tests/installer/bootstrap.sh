@@ -37,6 +37,7 @@ grep -q -- '--source-ref refs/tags/v0.2.0-preview.1 --deny-self-hosted-runners' 
 grep -q -- '--cert-identity https://github.com/AjMercury/MVM-OpenVPN/.github/workflows/release.yaml@refs/tags/' "$tmp/gh-arguments"
 unset -f gh
 gh(){ return 0; }
+verify_manifest
 SIGSTORE_ROOT_SHA256=$(printf invalid | sha256sum | cut -d ' ' -f 1)
 if (verify_manifest); then echo 'Tampered trust root accepted'; exit 1; fi
 unset -f gh fetch

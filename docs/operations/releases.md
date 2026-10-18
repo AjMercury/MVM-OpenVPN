@@ -37,4 +37,4 @@ Each archive contains VERSION, ARCH, SCHEMA and MATURITY metadata, server and ma
 
 ## Historical evidence
 
-Preview `v0.2.0-preview.3`, commit `e34686a`, passed [release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251), including Ubuntu lifecycle and public installation. That result did not cover networks blocking the Sigstore CDN. A subsequent quality run identified quic-go 0.59.0 advisory GO-2026-5676 and an invalid Trivy action reference; 1.0 upgrades quic-go to 0.59.1 and uses the valid `v0.33.1` action tag.
+Preview `v0.2.0-preview.3`, commit `e34686a`, passed [release run 39170730251](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39170730251), including Ubuntu lifecycle and public installation. That result did not cover networks blocking the Sigstore CDN. A subsequent quality run identified quic-go 0.59.0 advisory GO-2026-5676 and an invalid Trivy action reference; 1.0 upgrades quic-go to 0.59.1 and uses Trivy action `v0.36.0` with scanner `v0.76.0`.

@@ -32,8 +32,9 @@ jobs:
           push: false
           outputs: type=oci,dest=/tmp/mvm-image.tar
           sbom: true
-      - uses: aquasecurity/trivy-action@v0.33.1
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: v0.76.0
           input: /tmp/mvm-image.tar
           severity: HIGH,CRITICAL
           exit-code: "1"

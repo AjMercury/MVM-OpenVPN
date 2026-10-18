@@ -4,13 +4,13 @@ permissions:
   contents: read
 jobs:
   lifecycle:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/disposable-vm.sh
+          go-version: 1.27.2
+      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES MVM_LIFECYCLE_VERSION=1.0.0 MVM_LIFECYCLE_NEXT_VERSION=1.0.1 bash tests/systemd/disposable-vm.sh
   public-release:
     runs-on: ubuntu-24.04
     steps:

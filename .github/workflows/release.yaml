@@ -79,3 +79,10 @@ jobs:
           gh release create "$TAG" release/* --verify-tag --prerelease \
             --title "$TAG — Development Preview" \
             --notes 'Development Preview. Production deployment is not recommended. See README and SBOMs. Native systemd lifecycle gate covers Ubuntu 24.04 amd64 only; other implementation targets require runtime testing.'
+  public-install:
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the actual public one-line command without GitHub credentials
+        run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES bash tests/systemd/public-release.sh

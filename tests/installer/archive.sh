@@ -16,6 +16,12 @@ if (stage_release "$tmp/release.tar.gz" "$(printf '%064d' 0)" 1);then exit 1;fi
 [[ ! -e $BASE/releases/1 ]]
 (stage_release "$tmp/release.tar.gz" "$digest" 1)
 [[ -f $BASE/releases/1/server ]]
+if [[ $(uname -s) == Linux ]]; then
+ [[ $(stat -c %a "$BASE/releases/1") == 755 ]]
+ [[ $(stat -c %a "$BASE/releases/1/server") == 755 ]]
+ [[ $(stat -c %a "$BASE/releases/1/mvmctl") == 755 ]]
+ [[ $(stat -c %a "$BASE/releases/1/metadata.env") == 644 ]]
+else printf 'SKIP: POSIX release permission assertions require Linux\n'; fi
 if (stage_release "$tmp/release.tar.gz" "$digest" 1);then exit 1;fi
 if (ARCH=arm64;stage_release "$tmp/release.tar.gz" "$digest" 1);then exit 1;fi
 if (stage_release "$tmp/missing.tar.gz" "$digest" 2);then exit 1;fi

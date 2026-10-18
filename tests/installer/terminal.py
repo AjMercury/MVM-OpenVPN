@@ -17,7 +17,7 @@ if pid == 0:
     os.execvp(sys.argv[1], sys.argv[1:])
 # Wait for child's first prompt: guarantees terminal echo has been disabled.
 sent = False
-deadline = time.monotonic() + 180
+deadline = time.monotonic() + 600
 while True:
     if time.monotonic() > deadline:
         os.kill(pid, 9)

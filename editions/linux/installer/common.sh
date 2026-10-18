@@ -102,7 +102,11 @@ stage_release() {
  TARGET="$BASE/releases/$version"
  install -d -m 755 "$BASE/releases"
  mv "$STAGE/payload" "$TARGET"
- chmod -R go-w "$TARGET"
+ # umask 077 keeps staging private; published code must be traversable/executable
+ # by the unprivileged service. Persistent config/key/data retain private modes.
+ find "$TARGET" -type d -exec chmod 755 {} +
+ find "$TARGET" -type f -exec chmod 644 {} +
+ chmod 755 "$TARGET/server" "$TARGET/mvmctl"
 }
 active_release() { [[ -L $BASE/current ]]; }
 switch_release() {

@@ -21,6 +21,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   container:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -28,13 +31,19 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.arch }}
           push: false
           outputs: type=oci,dest=/tmp/mvm-image.tar
           sbom: true
+      - name: Expand OCI archive for Trivy
+        run: |
+          mkdir /tmp/mvm-oci
+          tar -xf /tmp/mvm-image.tar -C /tmp/mvm-oci
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.76.0
-          input: /tmp/mvm-image.tar
+          input: /tmp/mvm-oci
           severity: HIGH,CRITICAL
           exit-code: "1"
+        env:
+          TRIVY_PLATFORM: linux/${{ matrix.arch }}

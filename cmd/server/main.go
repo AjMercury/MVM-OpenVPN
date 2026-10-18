@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "1.0.2-dev"
+var version = "1.0.3-dev"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -134,7 +134,7 @@ func run(logger *slog.Logger) error {
 		if c.Cert != "" && c.Key != "" {
 			errs <- server.ListenAndServeTLS(c.Cert, c.Key)
 		} else {
-			if !c.Dev && !c.ProxyTLS {
+			if !c.Dev && !c.ProxyTLS && !c.AllowHTTP {
 				errs <- errors.New("configure native TLS, development loopback HTTP, or documented container reverse proxy")
 				return
 			}

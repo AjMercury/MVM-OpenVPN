@@ -34,13 +34,15 @@ The management menu opens with `sudo mvm`. The Bash wizard always creates the ad
 sudo mvm install ARCHIVE_OR_HTTPS_URL TRUSTED_SHA256 VERSION
 sudo mvm repair ARCHIVE_OR_HTTPS_URL TRUSTED_SHA256 NEW_VERSION
 sudo mvm update ARCHIVE_OR_HTTPS_URL TRUSTED_SHA256 NEW_VERSION
-sudo mvm update  # authenticated official preview release selection
+sudo mvm update  # authenticated release selection for the installed channel
 sudo mvm start
 sudo mvm stop
 sudo mvm restart
 sudo mvm status
 sudo mvm logs
 sudo mvm port 8443                    # retains bind address and protocol; 1024..65535
+sudo mvm access --http               # detect server IP; retain current port
+sudo mvm ssl                         # optional certificate issuance / renewal
 sudo mvm tls /secure/server.crt /secure/server.key https://panel.example:8443
 sudo mvm reset-admin EXISTING_USERNAME # password is prompted without echo, never a process argument
 sudo mvm backup                      # verified snapshot under /var/backups/mvm
@@ -124,3 +126,7 @@ Ubuntu LTS 22.04/24.04 and Debian 12/13, amd64/arm64, root permission, systemd, 
 Validation: installer Bash syntax and mocked installer suites passed, including wizard confirmation/redaction, port bounds/conflicts, loopback summary, prerequisite refusal, repeated staging, failed-update recovery, backups, rollback and uninstall preservation. Go suites `./cmd/mvmctl ./internal/storage/sqlite ./internal/http ./internal/security` passed outside the Windows sandbox (the sandbox denied existing backup/restore hard links). Added transactional bootstrap and offline command tests cover password length, preferences, existing-account protection and retries; existing HTTP tests cover setup-token authorization and closure. Actual Ubuntu 24.04 amd64 systemd lifecycle and public preview installation tests now pass in GitHub Actions. Live trusted-TLS/remote firewall tests remain unexecuted. The disposable VM test supplies random first-run credentials through an echo-disabled controlling PTY. Development Preview remains explicit; production acceptance and RouterOS/VPN interoperability remain outstanding.
 
 Changed source files for this task: `editions/linux/installer/{common,install,menu,wizard}.sh`, `cmd/mvmctl/{main.go,main_test.go}`, `internal/storage/sqlite/{bootstrap.go,bootstrap_test.go}`, `tests/installer/{run,wizard}.sh`, `tests/systemd/disposable-vm.sh`, `README.md`, `DELIVERY.md`, `editions/linux/README.md`, `docs/operations/installation.md`.
+
+## Optional HTTPS and terminal menu
+
+From 1.0.3 the wizard defaults to direct HTTP with explicit `MVM_ALLOW_HTTP=true`; credentials/session traffic are unencrypted. The grouped menu shows service state, version, port and URL, with optional ANSI color (`NO_COLOR` disables it). Errors return to the menu. See [HTTPS issuance and renewal](../../docs/operations/https.md) for domain/public IPv4 certificates, existing-web-server webroot mode, automatic renewal and fallback access.

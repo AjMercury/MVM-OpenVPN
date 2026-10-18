@@ -87,6 +87,15 @@ generate_panel_tls() {
  chmod 640 "$PANEL_CERT" "$PANEL_KEY"
  chown root:mvm "$PANEL_CERT" "$PANEL_KEY"
 }
+configure_http_access() {
+ configure_direct_access "$1" >/dev/null
+ PANEL_ORIGIN=${PANEL_ORIGIN/https:/http:}
+ PANEL_ADDITIONAL_ORIGINS=${PANEL_ADDITIONAL_ORIGINS//https:/http:}
+ PANEL_TLS=false
+ PANEL_AUTO_TLS=false
+ PANEL_HTTP=true
+ printf 'Direct HTTP access: %s (unencrypted; no TLS certificate is required).\n' "$PANEL_ORIGIN"
+}
 print_panel_fingerprint() {
  printf 'Automatic HTTPS certificate: verify this SHA-256 fingerprint before trusting it in your browser:\n'
  openssl x509 -in "$PANEL_CERT" -noout -fingerprint -sha256
@@ -112,10 +121,11 @@ installation_wizard() {
  validate_zone "$PANEL_ZONE" || die 'Invalid timezone'
  read -r -p 'Language English/Persian [en/fa, default en]: ' PANEL_LANGUAGE; PANEL_LANGUAGE=${PANEL_LANGUAGE:-en}
  [[ $PANEL_LANGUAGE == en || $PANEL_LANGUAGE == fa ]] || die 'Language must be en or fa'
- PANEL_BIND=127.0.0.1; PANEL_ORIGIN="http://127.0.0.1:$PANEL_PORT"; PANEL_TLS=false; PANEL_AUTO_TLS=false; PANEL_ADDITIONAL_ORIGINS=
- read -r -p 'Access mode: automatic HTTPS or existing trusted certificate [auto/tls/local, default auto]: ' answer
- answer=${answer:-auto}
- [[ $answer == auto || $answer == local || $answer == tls ]] || die 'Choose auto, tls or local'
+ PANEL_BIND=127.0.0.1; PANEL_ORIGIN="http://127.0.0.1:$PANEL_PORT"; PANEL_TLS=false; PANEL_AUTO_TLS=false; PANEL_HTTP=false; PANEL_ADDITIONAL_ORIGINS=
+ read -r -p 'Access mode: HTTP (unencrypted), automatic HTTPS, existing TLS or local [http/auto/tls/local, default http]: ' answer
+ answer=${answer:-http}
+ [[ $answer == http || $answer == auto || $answer == local || $answer == tls ]] || die 'Choose http, auto, tls or local'
+ if [[ $answer == http ]]; then configure_http_access "$detected_ip"; fi
  if [[ $answer == auto ]]; then configure_direct_access "$detected_ip"; fi
  if [[ $answer == tls ]]; then
   read -r -p 'Full-chain certificate PEM path: ' PANEL_CERT

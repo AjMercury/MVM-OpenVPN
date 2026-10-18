@@ -7,6 +7,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$SCRIPT_DIR/update.sh"
 . "$SCRIPT_DIR/uninstall.sh"
 . "$SCRIPT_DIR/access.sh"
+. "$SCRIPT_DIR/acme.sh"
+. "$SCRIPT_DIR/ui.sh"
 # Real entry points require a terminal. Source-based unit tests exercise functions separately.
 if ! (: </dev/tty) 2>/dev/null; then die 'Interactive terminal required (/dev/tty); no unattended mode is offered.'; fi
 exec 0</dev/tty
@@ -42,7 +44,7 @@ command_run() {
   port_available "$1" || die 'Panel port is already in use'
   backup_db >/dev/null
     local scheme=http host address
-  if [[ ${MVM_DEV_HTTP:-} != true ]]; then scheme=https; fi
+  scheme=${MVM_ORIGIN%%://*}
   host=${MVM_ORIGIN#*://}; host=${host%%:*}
   [[ $host =~ ^[A-Za-z0-9.-]+$ ]] || die 'IPv6/custom origin requires reviewed manual configuration'
   address=${MVM_LISTEN%:*}
@@ -59,31 +61,8 @@ command_run() {
   sed -i '/^MVM_ADDITIONAL_ORIGINS=/d' "$CONF/config.env"
   printf 'MVM_ADDITIONAL_ORIGINS=%s\n' "$aliases" >> "$CONF/config.env"
   if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'Port change failed; previous configuration restored'; fi;;
-  tls)
-  preflight; load_config --replace-tls
-  [[ $# == 3 && $3 =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || die 'Usage: mvm tls CERT_PEM KEY_PEM HTTPS_ORIGIN'
-  openssl x509 -in "$1" -noout -checkend 0 >/dev/null || die 'Expired or invalid certificate'
-  local certpub keypub
-  certpub=$(openssl x509 -in "$1" -pubkey -noout | openssl sha256)
-  keypub=$(openssl pkey -in "$2" -pubout -passin pass: | openssl sha256)
-  [[ $certpub == "$keypub" ]] || die 'Certificate/key mismatch'
-  local tls_host=${3#https://}; tls_host=${tls_host%%:*}
-  [[ $3 == "https://$tls_host:${MVM_LISTEN##*:}" ]] || die 'TLS origin must include current listener port'
-  validate_tls "$1" "$2" "$tls_host"
-  local tls_bind=${MVM_LISTEN%:*}
-  if [[ $tls_bind == 127.0.0.1 ]]; then
-   tls_bind=$(detect_panel_ip)
-   [[ -n $tls_bind ]] || die 'Cannot detect a server IP for TLS'
-  fi
-  backup_db >/dev/null
-  local suffix; suffix=$(openssl rand -hex 12)
-  install -o root -g mvm -m 640 "$1" "$CONF/tls/server-$suffix.crt"
-  install -o root -g mvm -m 640 "$2" "$CONF/tls/server-$suffix.key"
-  cp -p "$CONF/config.env" "$CONF/config.env.previous"
-  sed -i '/^MVM_TLS_CERT=/d;/^MVM_TLS_KEY=/d;/^MVM_TLS_CA_FILE=/d;/^MVM_ORIGIN=/d;/^MVM_ADDITIONAL_ORIGINS=/d;/^MVM_DEV_HTTP=/d' "$CONF/config.env"
-  sed -i "s|^MVM_LISTEN=.*|MVM_LISTEN=$tls_bind:${MVM_LISTEN##*:}|" "$CONF/config.env"
-  printf 'MVM_TLS_CERT=%s\nMVM_TLS_KEY=%s\nMVM_ORIGIN=%s\nMVM_DEV_HTTP=false\n' "$CONF/tls/server-$suffix.crt" "$CONF/tls/server-$suffix.key" "$3" >> "$CONF/config.env"
-  if ! systemctl restart mvm || ! ready; then cp -p "$CONF/config.env.previous" "$CONF/config.env"; systemctl restart mvm; die 'TLS readiness failed; previous configuration restored'; fi;;
+ tls) preflight; tls_panel "$@";;
+ ssl) ssl_panel "$@";;
  reset-admin)
   preflight; load_config
   [[ $# == 1 ]] || die 'Usage: mvm reset-admin USERNAME (password read securely)'
@@ -99,9 +78,15 @@ command_run() {
  esac
 }
 if [[ $# -gt 0 ]]; then command_run "$@"; exit; fi
+trap 'printf "\n"' INT
+# A child shell retains errexit while failures return to the interactive menu.
+command_run() {
+ local result=0
+ bash "$SCRIPT_DIR/menu.sh" "$@" || result=$?
+ if ((result != 0)); then printf 'Operation ended (status %s). See the message above.\n' "$result"; fi
+}
 while true; do
- printf '\n========================================\n MikroTik VPN Manager\n Installation & Management\n %s\n========================================\n%s\n' "$RELEASE_LABEL" "$WARNING"
- printf '1. Install / Repair\n2. Update Panel\n3. Uninstall Panel\n4. Start Service\n5. Stop Service\n6. Restart Service\n7. Service Status\n8. View Logs\n9. Change Panel Port\n10. Configure TLS Certificate\n11. Reset Admin Credentials\n12. Backup Database\n13. Restore Database\n14. Rollback Version\n15. Panel Information\n16. Configure IP / Domain Access\n0. Exit\n'
+ ui_menu
  read -r -p 'Select an option: ' choice || exit
  case $choice in
  0) exit;;
@@ -112,7 +97,15 @@ while true; do
   10) read -r -p 'Certificate PEM path: ' cert; read -r -p 'Key PEM path: ' key; read -r -p 'HTTPS origin (trusted SAN, current port): ' origin; command_run tls "$cert" "$key" "$origin";;
  11) read -r -p 'Existing administrator username: ' username; command_run reset-admin "$username";;
  12) command_run backup;;13) read -r -p 'Backup path: ' path; command_run restore "$path";;14) command_run rollback;;15) command_run info;;
- 16) read -r -p 'Server IP or domain: ' panel_host; command_run access "$panel_host";;
+ 16) read -r -p 'Server IP or domain (blank: detect): ' panel_host
+     read -r -p 'Protocol [http/auto, default http]: ' mode
+     if [[ ${mode:-http} == http ]]; then
+      if [[ -n $panel_host ]]; then command_run access --http "$panel_host"; else command_run access --http; fi
+     elif [[ $mode == auto ]]; then
+      if [[ -n $panel_host ]]; then command_run access "$panel_host"; else command_run access; fi
+     else printf 'Choose http or auto\n'; fi;;
+ 17) command_run ssl;;
+ 18) command_run access --http;;
  *) printf 'Invalid selection\n';;
  esac
 done

@@ -6,6 +6,11 @@ uninstall_panel() {
  read -r -p 'Type REMOVE to uninstall: ' answer
  [[ $answer == REMOVE ]] || die 'Cancelled'
  systemctl disable --now mvm
+ if [[ -f /etc/systemd/system/mvm-cert-renew.timer ]]; then
+  systemctl disable --now mvm-cert-renew.timer
+  systemctl stop mvm-cert-renew.service || true
+  rm -f /etc/systemd/system/mvm-cert-renew.timer /etc/systemd/system/mvm-cert-renew.service
+ fi
  rm -f /etc/systemd/system/mvm.service /usr/local/bin/mvm
  # Fixed absolute application-only path, never derived from database or environment input.
  rm -rf -- /opt/mvm

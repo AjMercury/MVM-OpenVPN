@@ -6,7 +6,7 @@ if [[ $(uname -s) == Linux ]]; then
 output=$(printf '0\n' | python3 "$root/tests/installer/terminal.py" bash "$root/editions/linux/installer/install.sh")
 grep -q 'Development Preview' <<< "$output"
 grep -q 'Real RouterOS and VPN client interoperability testing is incomplete' <<< "$output"
-grep -q '15. Panel Information' <<< "$output"
+grep -q '15) Panel Information' <<< "$output"
 else
  printf 'SKIP: controlling-PTY menu integration requires Linux\n'
 fi

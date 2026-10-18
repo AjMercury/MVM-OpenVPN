@@ -2,7 +2,7 @@
 
 Linux management panel for MikroTik OpenVPN, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
 
-[v1.0.2 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.2), with automatic server-IP HTTPS and live installation progress. [Public installation and native Ubuntu 24.04 lifecycle pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39176357352), and [security/race/container checks pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39176357366).
+Version 1.0.3 adds optional Let's Encrypt HTTPS, certificate renewal and a grouped terminal manager. Validation is in progress; the published stable release is [v1.0.2](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.2).
 
 **Release scope:** stable native Linux manager. RouterOS VPN automation remains experimental and disabled by default. Actual router/client interoperability, effective access restrictions and certificate offboarding still require an authorized lab. This release does not certify those workflows for production.
 
@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/AjMercury/MVM-OpenVPN/master/instal
 
 The default command selects the newest stable release. For a preview, explicitly append `-s -- --channel preview` to `sudo bash`. Stable and preview channels never silently fall back to one another. An interactive SSH terminal is required.
 
-The wizard asks for the administrator username and hidden password, port, language and timezone. No default password is shipped. From 1.0.2, default access uses the detected server IP or supplied domain on port 8443. Automatic HTTPS generates a certificate for this server IP and any supplied domain; verify/import the displayed certificate fingerprint on first browser access. Local-only access is optional. The installer does not modify your firewall or existing web server.
+The wizard asks for the administrator username and hidden password, port, language and timezone. No default password is shipped. From 1.0.3, default access is HTTP on the detected server IP or supplied domain. HTTP sends credentials and session traffic without encryption. Optional HTTPS is configured through `sudo mvm ssl` (menu 17): Let's Encrypt for domains/public IPv4, existing web-server webroot mode, or self-signed HTTPS. Issued certificates renew through a systemd timer. The installer does not modify your firewall or stop your web server. See [HTTPS setup](docs/operations/https.md).
 
 Release signatures are verified before executing downloaded code. The official Sigstore trust root is pinned by commit and SHA-256 and fetched through GitHub; the blocked Sigstore TUF CDN is not required. No GitHub login is needed. Checksums alone are not accepted as a replacement for provenance verification. See [release trust and troubleshooting](docs/operations/releases.md).
 
@@ -28,7 +28,7 @@ journalctl -u mvm -f
 
 For an existing preview installation, use `sudo mvm` to update with the existing database and master key. An older preview manager may select its preview channel; use the new bootstrap with `--action update` to explicitly select stable. Do not delete data or regenerate keys to retry an installation.
 
-To move an existing localhost-only installation to direct IP access after upgrading to 1.0.2, run `sudo mvm access SERVER_IP_OR_DOMAIN` (or menu option 16). This preserves accounts and takes a verified backup before changing the listener. If a domain is supplied, the detected server IP is also accepted for HTTPS access. Firewall rules remain under your control.
+After upgrading to 1.0.3, run `sudo mvm access --http` (menu 18) for direct HTTP with automatic IP detection. Optionally append a domain; server IP aliases remain available. This preserves accounts, database, master key and current port. `sudo mvm access` selects self-signed HTTPS instead. Public certificates use their matching domain/IP URL.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AjMercury/MVM-OpenVPN/master/install.sh | sudo bash -s -- --action update

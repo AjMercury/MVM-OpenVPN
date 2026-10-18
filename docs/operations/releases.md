@@ -8,7 +8,7 @@ The 1.0 release path supports stable tags (`vX.Y.Z`) and explicit preview tags (
 curl -fsSL https://raw.githubusercontent.com/AjMercury/MVM-OpenVPN/master/install.sh | sudo bash
 ```
 
-Use `sudo bash -s -- --channel preview` for a preview. Add `--version vX.Y.Z` to pin a published stable release, or `--action update` / `--action repair` for existing state. Never delete the master key or database to retry. The wizard requires a controlling terminal, prompts securely for credentials and from 1.0.2 defaults to automatic HTTPS on the detected server IP or supplied domain. Trusted TLS and explicit local-only access remain available. The configured TCP port must be allowed by the host/network firewall.
+Use `sudo bash -s -- --channel preview` for a preview. Add `--version vX.Y.Z` to pin a published stable release, or `--action update` / `--action repair` for existing state. Never delete the master key or database to retry. The wizard requires a controlling terminal, prompts securely for credentials and from 1.0.3 defaults to HTTP on the detected server IP or supplied domain. Optional public certificate issuance/renewal, self-signed HTTPS and local-only access remain available; see [HTTPS setup](https.md). The configured TCP port must be allowed by the host/network firewall.
 
 The default stable channel never silently installs a preview. Missing releases now fail before installing the GitHub verification tool. Preview acceptance is requested once; stable packages do not request preview acceptance. Download/verification errors retain a root-private directory under `/var/tmp/mvm-bootstrap-*`; verifier output is displayed and retained in `verification.log`. Preserve `/etc/mvm`, `/var/lib/mvm` and `/var/backups/mvm` after partial installation.
 

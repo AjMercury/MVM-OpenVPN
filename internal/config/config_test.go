@@ -70,3 +70,29 @@ func TestDirectHTTPSAndExactOrigins(t *testing.T) {
 		}
 	}
 }
+
+func TestExplicitNetworkHTTP(t *testing.T) {
+	t.Setenv("MVM_MASTER_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)))
+	t.Setenv("MVM_LISTEN", "0.0.0.0:8444")
+	t.Setenv("MVM_ORIGIN", "http://192.0.2.45:8444")
+	t.Setenv("MVM_ADDITIONAL_ORIGINS", "http://panel.example.test:8444")
+	t.Setenv("MVM_ALLOW_HTTP", "true")
+	c, err := Load()
+	if err != nil || !c.AllowHTTP || c.Dev {
+		t.Fatalf("explicit HTTP: %+v %v", c, err)
+	}
+	t.Setenv("MVM_TLS_CERT", "some.pem")
+	if _, err := Load(); err == nil {
+		t.Fatal("mixed TLS and HTTP accepted")
+	}
+	t.Setenv("MVM_TLS_CERT", "")
+	t.Setenv("MVM_PROXY_TLS", "true")
+	if _, err := Load(); err == nil {
+		t.Fatal("mixed proxy TLS and HTTP accepted")
+	}
+	t.Setenv("MVM_PROXY_TLS", "false")
+	t.Setenv("MVM_ORIGIN", "https://192.0.2.45:8444")
+	if _, err := Load(); err == nil {
+		t.Fatal("HTTPS origin accepted in HTTP mode")
+	}
+}

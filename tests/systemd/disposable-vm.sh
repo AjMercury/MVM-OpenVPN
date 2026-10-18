@@ -21,6 +21,11 @@ panel_ip=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++)if($i=="src"){print 
 printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
 printf '\n' | python3 tests/installer/terminal.py mvm access panel.example.test
 printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
+printf '\n' | python3 tests/installer/terminal.py mvm port 8444
+printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
+printf '\n' | python3 tests/installer/terminal.py mvm access --http panel.example.test
+printf '%s' "$secret" | python3 tests/systemd/direct-access.py "$panel_ip" vm-owner
+! grep -q '^MVM_TLS_CERT=' /etc/mvm/config.env
 unset secret
 systemd-analyze verify /etc/systemd/system/mvm.service
 [[ $(systemctl show mvm -p Description --value) == 'MikroTik VPN Manager' ]]

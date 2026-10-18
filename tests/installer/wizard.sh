@@ -65,12 +65,12 @@ en
 
 INPUT
   printf '%s %s %s' "$PANEL_BIND" "$PANEL_ORIGIN" "$PANEL_ADDITIONAL_ORIGINS")
-  [[ $output == *'0.0.0.0 https://'* && $output != *'unique long secret passphrase'* ]]
-  if [[ -z $host ]]; then [[ $output == *'https://172.16.180.58:8443'* ]];
-  else [[ $output == *'https://panel.example.test:8443 https://172.16.180.58:8443'* ]]; fi
+  [[ $output == *'0.0.0.0 http://'* && $output != *'unique long secret passphrase'* ]]
+  if [[ -z $host ]]; then [[ $output == *'http://172.16.180.58:8443'* ]];
+  else [[ $output == *'http://panel.example.test:8443 http://172.16.180.58:8443'* ]]; fi
  done
 )
-printf 'PASS: default direct IP and simultaneous domain/IP HTTPS without localhost or manual certificate prompts\n'
+printf 'PASS: default direct IP and simultaneous domain/IP HTTP without localhost or manual certificate prompts\n'
 (
  ip(){ printf '2: eth0 inet 198.51.100.22/24 scope global eth0\n3: eth1 inet 203.0.113.29/24 scope global eth1\n'; }
  PANEL_HOST=198.51.100.22; PANEL_PORT=9443

@@ -221,7 +221,7 @@ func (h *Server) allowedOrigin(origin string) bool {
 	}
 	return false
 }
-func (h *Server) secureCookies() bool { return !h.App.Config.Dev }
+func (h *Server) secureCookies() bool { return !h.App.Config.Dev && !h.App.Config.AllowHTTP }
 func (h *Server) fail(c *gin.Context, status int, e error) {
 	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") || c.GetHeader("Accept") == "application/json" {
 		c.JSON(status, gin.H{"error": gin.H{"message": e.Error(), "request_id": c.Writer.Header().Get("X-Request-ID")}})

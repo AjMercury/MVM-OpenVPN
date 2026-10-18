@@ -68,7 +68,7 @@ load_config() {
    openssl x509 -in "$MVM_TLS_CERT" -noout -checkend 0 >/dev/null || die 'TLS certificate invalid/expired'
   fi
   [[ -s ${MVM_TLS_KEY:-} ]] || die 'TLS key missing'
- else [[ ${MVM_LISTEN:-} == 127.0.0.1:* && ${MVM_DEV_HTTP:-} == true ]] || die 'HTTP must bind loopback'; fi
+ else [[ ${MVM_ALLOW_HTTP:-false} == true || ${MVM_LISTEN:-} == 127.0.0.1:* && ${MVM_DEV_HTTP:-} == true ]] || die 'Network HTTP requires explicit MVM_ALLOW_HTTP=true'; fi
 }
 ctl() { runuser -u mvm -- env MVM_MASTER_KEY_FILE="$CONF/master.key" "$BASE/current/mvmctl" "$@"; }
 install_service_unit() {
@@ -150,7 +150,7 @@ switch_release() {
  mv -Tf "$BASE/.current-new" "$BASE/current" || die 'Cannot activate release'
 }
 backup_db() {
- load_config
+ load_config "${2:-}"
  local path=${1:-$BACKUPS/mvm-$(date -u +%Y%m%dT%H%M%S)-$RANDOM.db}
  [[ $path == "$BACKUPS/"* ]] || die "Backup must be inside $BACKUPS"
  ctl backup "$DATA/mvm.db" "$path"

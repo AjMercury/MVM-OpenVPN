@@ -30,3 +30,14 @@ for host in '999.1.1.1' 'panel.test;id' localhost 127.0.0.1; do
  if (access_panel "$host");then echo 'Invalid direct host accepted';exit 1;fi
 done
 printf 'PASS: direct IP/domain access, secondary IP origin, master-key preservation and rollback on readiness failure\n'
+
+ready(){ return 0; }
+load_config(){ MVM_LISTEN=0.0.0.0:8444; }
+access_panel --http panel.example.test
+grep -qx 'MVM_LISTEN=0.0.0.0:8444' "$CONF/config.env"
+grep -qx 'MVM_ORIGIN=http://panel.example.test:8444' "$CONF/config.env"
+grep -qx 'MVM_ALLOW_HTTP=true' "$CONF/config.env"
+grep -qx 'MVM_ADDITIONAL_ORIGINS=http://172.16.180.58:8444' "$CONF/config.env"
+! grep -q '^MVM_TLS_' "$CONF/config.env"
+grep -qx 'MVM_MASTER_KEY_FILE=/original/key' "$CONF/config.env"
+printf 'PASS: explicit HTTP replaces TLS, preserves current port and master key\n'

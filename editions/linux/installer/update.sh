@@ -49,6 +49,9 @@ rollback_panel() {
  if [[ -n ${MVM_TLS_CA_FILE:-} ]] && grep -Eq '^VERSION=(0\.|1\.0\.0$)' "$old/metadata.env"; then
   die 'Previous release does not support automatic HTTPS readiness. Configure a system-trusted certificate before rolling back; current service retained.'
  fi
+ if [[ ${MVM_ALLOW_HTTP:-false} == true ]] && grep -Eq '^VERSION=(0\.|1\.0\.[012]$)' "$old/metadata.env"; then
+  die 'Previous release does not support explicit network HTTP. Configure HTTPS before rolling back; current service retained.'
+ fi
  # Current migration contract is schema 1 only. Never downgrade across unknown schemas.
  grep -qx 'SCHEMA=1' "$old/metadata.env" || die 'Incompatible rollback schema'
  systemctl stop mvm

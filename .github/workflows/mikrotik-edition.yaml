@@ -1,0 +1,24 @@
+name: mikrotik-lite-build-only
+on: [workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -tags 'nomsgpack lite' ./internal/app ./internal/jobs ./internal/http ./internal/storage/bbolt
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: editions/mikrotik/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          outputs: type=oci,dest=/tmp/mvm-mikrotik-build-only.tar
+          sbom: true
+# No publication: per-device RouterOS runtime compatibility approval remains required.

@@ -1,0 +1,9 @@
+.git
+.tools
+.env
+data
+artifacts
+*.db
+*.db.*
+*.key
+*.ovpn

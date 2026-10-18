@@ -1,0 +1,11 @@
+.tools/
+.env
+data/
+artifacts/
+*.exe
+*.test
+coverage.out
+*.db
+*.db.*
+*.key
+*.ovpn

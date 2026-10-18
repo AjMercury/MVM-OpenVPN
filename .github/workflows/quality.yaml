@@ -1,0 +1,39 @@
+name: quality
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.27.2
+          cache: true
+      - run: test -z "$(gofmt -l cmd internal web/assets.go)"
+      - run: go vet -tags nomsgpack ./...
+      - run: go run scripts/check-manifests.go
+      - run: go test -tags nomsgpack -race -coverprofile=coverage.out ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest -tags nomsgpack ./...
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          outputs: type=oci,dest=/tmp/mvm-image.tar
+          sbom: true
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          input: /tmp/mvm-image.tar
+          severity: HIGH,CRITICAL
+          exit-code: "1"

@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: MikroTik VPN Manager internal API
+  version: 0.1.0
+  description: >-
+    Development preview. Cookie authentication, exact Origin and X-CSRF-Token are required
+    on all API mutations. Browser forms may submit csrf as a form field. JSON responses
+    use error.message and error.request_id. Router writes require the deployment gate
+    and explicit confirmation; previews make read-only router requests. No live interoperability certified.
+servers:
+  - url: https://localhost:8443
+security:
+  - session: []
+paths:
+  /healthz:
+    get:
+      security: []
+      responses:
+        '200': {description: Process healthy; not proof of VPN connectivity}
+  /readyz:
+    get:
+      security: []
+      responses:
+        '200': {description: Database accessible}
+        '503': {description: Database unavailable}
+  /metrics:
+    get:
+      responses:
+        '200': {description: Prometheus inventory metric; super admin or auditor}
+        '403': {$ref: '#/components/responses/Error'}
+  /login:
+    post:
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              additionalProperties: false
+              properties:
+                username: {type: string, maxLength: 27}
+                password: {type: string, maxLength: 233, format: password}
+      responses:
+        '200': {description: Session cookie and JSON csrf token}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /api/v1/logout:
+    post:
+      responses:
+        '200': {description: Session removed}
+  /api/v1/routers:
+    get:
+      responses:
+        '200': {description: Scoped inventory items; credentials and CA omitted}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, host, port, username, password]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 80}
+                host: {type: string, description: Hostname or IP only; no URL/path}
+                port: {type: integer, minimum: 1, maximum: 65535}
+                username: {type: string}
+                password: {type: string, format: password}
+                ca_pem: {type: string, description: Optional PEM trust anchor}
+                group: {type: string}
+      responses:
+        '200': {description: Inventory created; no router contact}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/routers/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    delete:
+      responses:
+        '204': {description: Inventory removed only when no managed server or unresolved job; no remote deletion}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/routers/{id}/sync:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      responses:
+        '200': {description: Read-only observed snapshot; router admin or super admin}
+        '502': {$ref: '#/components/responses/Error'}
+  /api/v1/routers/{id}/capabilities:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      responses:
+        '200': {description: Last observed capabilities and observation timestamp}
+  /api/v1/routers/{id}/sessions:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      responses:
+        '200': {description: On-demand PPP active-session records and observed_at timestamp}
+  /api/v1/provisioning/servers/preview:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [spec, idempotency_key]
+              properties:
+                spec: {$ref: '#/components/schemas/ServerSpec'}
+                idempotency_key: {type: string, minLength: 8, maxLength: 128}
+      responses:
+        '200': {description: Persisted READY job; expires in 15 minutes; generated resources and firewall preview}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/provisioning/users/preview:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [server_id, username, password, idempotency_key]
+              properties:
+                server_id: {type: string}
+                username: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,26}$'}
+                password: {type: string, minLength: 14, maxLength: 233, format: password}
+                address: {type: string, description: Optional static address; otherwise next free address is reserved}
+                account_id: {type: string, description: Optional separate end-user account owner}
+                idempotency_key: {type: string, minLength: 8, maxLength: 128}
+      responses:
+        '200': {description: Persisted READY user job; password redacted in response}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/provisioning/jobs/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      responses:
+        '200': {description: Scoped job, redacted steps, state and owned resources}
+  /api/v1/provisioning/jobs/{id}/apply:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirm]
+              properties:
+                confirm: {type: boolean, enum: [true]}
+      responses:
+        '200': {description: Operation completed or already completed; check job state for detail}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/vpn/users/{id}/{action}:
+    parameters:
+      - {$ref: '#/components/parameters/ID'}
+      - name: action
+        in: path
+        required: true
+        schema: {type: string, enum: [disable, disconnect]}
+      - name: X-Confirm-Operation
+        in: header
+        required: true
+        schema: {type: string, enum: ['yes']}
+    post:
+      responses:
+        '200': {description: Verified disable plus session termination, or disconnect only}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/client-configs/{id}/export:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [passphrase]
+              properties:
+                passphrase: {type: string, minLength: 14, maxLength: 128, format: password}
+      responses:
+        '200': {description: Sensitive fragment URL, five-minute TTL, authenticated_download_link mode; operator or administrator only}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/client-configs/download:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: {type: string, description: Single-use fragment token; current owner authorization required}
+      responses:
+        '200':
+          description: No-store attachment; consumption happens before streaming (network failure requires a fresh export)
+          content:
+            application/x-openvpn-profile:
+              schema: {type: string, format: binary}
+        '403': {$ref: '#/components/responses/Error'}
+  /api/v1/client-configs/revoke:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token, csrf]
+              properties:
+                token: {type: string}
+                csrf: {type: string}
+      responses:
+        '303': {description: Delivery revoked; assigned owner or scoped VPN administrator/operator}
+  /api/v1/accounts:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, password, role]
+              properties:
+                username: {type: string}
+                password: {type: string, minLength: 14, maxLength: 233, format: password}
+                role: {type: string, enum: [super_admin, router_admin, vpn_operator, auditor, end_user]}
+                routers: {type: array, items: {type: string}}
+      responses:
+        '200': {description: Account created by super administrator}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/audit:
+    get:
+      parameters:
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        '200': {description: Up to 100 scoped events, newest first, with total}
+components:
+  securitySchemes:
+    session: {type: apiKey, in: cookie, name: mvm_session}
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    Error:
+      description: Request rejected; no credentials included
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message: {type: string}
+                  request_id: {type: string}
+  schemas:
+    ServerSpec:
+      type: object
+      additionalProperties: false
+      required: [router_id, name, endpoint, port, transport, subnet, pool_start, pool_end, gateway, dns, allowed, input_anchor, forward_anchor]
+      properties:
+        router_id: {type: string}
+        name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,26}$'}
+        endpoint: {type: string}
+        port: {type: integer, minimum: 1024, maximum: 65535}
+        transport: {type: string, enum: [tcp, udp]}
+        subnet: {type: string, description: Canonical IPv4 /16 through /30}
+        pool_start: {type: string, format: ipv4}
+        pool_end: {type: string, format: ipv4}
+        gateway: {type: string, format: ipv4}
+        dns: {type: array, minItems: 1, maxItems: 3, items: {type: string, format: ipv4}}
+        allowed: {type: array, minItems: 1, maxItems: 32, items: {type: string}, description: Explicit canonical IPv4 CIDRs; no default route or VPN overlap}
+        input_anchor: {type: string}
+        forward_anchor: {type: string}

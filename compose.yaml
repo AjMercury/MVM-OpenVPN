@@ -1,0 +1,63 @@
+name: mikrotik-vpn-manager
+services:
+  manager:
+    image: mikrotik-vpn-manager:${MVM_VERSION:-0.2.0-dev}
+    build:
+      context: .
+      args:
+        VERSION: ${MVM_VERSION:-0.2.0-dev}
+    environment:
+      MVM_MASTER_KEY: ${MVM_MASTER_KEY:?Set a base64 random 32-byte key}
+      MVM_DATABASE: /data/mvm.db
+      MVM_PROXY_TLS: "true"
+      MVM_ORIGIN: ${MVM_ORIGIN:-https://localhost:8443}
+      MVM_ROUTER_CIDRS: ${MVM_ROUTER_CIDRS:-}
+      MVM_ALLOW_MUTATIONS: ${MVM_ALLOW_MUTATIONS:-false}
+      MVM_ROUTER_TIMEOUT_SECONDS: ${MVM_ROUTER_TIMEOUT_SECONDS:-20}
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: 2
+    volumes:
+      - ./data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 2
+    pids_limit: 64
+    restart: unless-stopped
+    networks: [management]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  proxy:
+    image: caddy:2.10.2-alpine
+    ports:
+      - "127.0.0.1:8443:8443"
+    environment:
+      MVM_TLS_HOST: ${MVM_TLS_HOST:-localhost}
+    volumes:
+      - ./deployments/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deployments/docker/tls:/etc/mvm-tls:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    restart: unless-stopped
+    networks: [management]
+    depends_on:
+      manager:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+networks:
+  management: {}
+volumes:
+  caddy-data: {}
+  caddy-config: {}
+
+

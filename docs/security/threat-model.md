@@ -1,0 +1,23 @@
+# Threat model and review
+
+Assets include RouterOS credentials, VPN credentials, CA ownership, client private keys, master key, router firewall/routing availability, user access scopes and audit history. Trust boundaries separate browser, management service, encrypted local database, TLS router endpoint and client recipient. A malicious authorized router can supply observations and certificate bytes; size/type validation limits parsing but cannot turn an untrusted router into a trusted one.
+
+## Implemented controls
+
+* Argon2id: 32 MiB, three iterations, two lanes, random 16-byte salt, 32-byte verifier. Passwords 14–233 bytes. No default credentials. Two concurrent password checks maximum.
+* Random 256-bit sessions; token hashes in encrypted database; eight-hour absolute expiry. HttpOnly, SameSite=Strict cookies; Secure except explicit loopback development. Logout deletes the session. Trusted native TLS or a verified TLS reverse proxy is required for network access.
+* Same-origin and synchronizer-token CSRF validation on mutations; login origin validation. Trusted proxies are disabled. Bounded per-IP login attempt map (five attempts/ten minutes). Reverse-proxied deployments currently share the proxy IP throttle; configure an external management access policy. Distributed/account-aware throttling and MFA remain pending.
+* Role checks execute server-side. Router administrator and VPN operator use explicit router IDs; end users only receive their assigned delivery. Read-only auditors cannot mutate. Scopes are reviewed again on each request. Global account management belongs only to super administrators.
+* AES-256-GCM encryption with random nonces and `bucket:id` associated data. Master key is external. No secret request-body logging; route patterns are logged instead of URLs. Panic handling suppresses request/header dumps. Router error bodies are not returned.
+* HTTPS only for RouterOS, TLS ≥1.2, system/private CA validation, redirect rejection, no proxy inheritance. Every resolved IP must be global-unicast and inside operator-approved CIDRs. Numeric validated IP is dialed directly. Loopback/link-local/metadata addresses are denied even if allowed by CIDR.
+* Embedded HTML autoescaping, restrictive CSP, no inline executable JS, anti-framing, no-store and same-origin referrers. The referrer policy preserves same-origin form Origin checks while suppressing cross-origin referrers. Request and RouterOS response limits and bounded connection timeouts.
+* Single-use delivery is authorized against the current user record. Disabling a user blocks undelivered profile bytes. Download cannot revoke already copied credentials; disable and disconnect the PPP account for offboarding.
+
+Linux deployment uses an unprivileged systemd service and external key file; Lite uses a separate RouterOS Container with the compatible bbolt store. First-run web setup requires a protected local bootstrap token and exact-origin POST, serializes administrator creation, and is disabled after initialization. Installer consent preserves the Development Preview warning. Offline migration requires a verified encrypted backup/rehearsal and does not overwrite original data/key. Release installation trusts an independently authenticated pinned SHA-256; no official published release channel is configured. Native deployment sandbox behavior and RouterOS runtime security still require real environment validation.
+
+## Remaining risks
+
+No MFA, immutable external audit sink, automatic account/session management UI, complete firewall semantic analyzer, external dependency-proof rollback, or proven CRL enforcement. AES-GCM record encryption in either SQLite or bbolt does not protect a running process or host compromise. Go cannot guarantee erasure of all garbage-collected secret buffers. Audit failure after a remote write cannot undo that write. Pending jobs retain encrypted credentials until purged; failed/interrupted jobs may need manual secure retention handling. Router service credentials necessarily carry significant privileges; protect the management network.
+
+No production readiness claim is made. Run vulnerability tools and the full allowed/denied-destination lab before deployment. Do not assume certificate CN equals PPP identity binding. Deleting a database/user record does not revoke router access.
+

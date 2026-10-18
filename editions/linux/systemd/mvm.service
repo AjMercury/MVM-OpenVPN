@@ -1,0 +1,35 @@
+[Unit]
+Description=MikroTik VPN Manager (Development Preview)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=mvm
+Group=mvm
+EnvironmentFile=/etc/mvm/config.env
+WorkingDirectory=/var/lib/mvm
+ExecStart=/opt/mvm/current/server
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/mvm
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+LimitNOFILE=4096
+TasksMax=128
+MemoryMax=512M
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

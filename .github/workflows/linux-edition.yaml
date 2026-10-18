@@ -1,0 +1,34 @@
+name: linux-edition
+on: [workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -tags nomsgpack ./...
+      - run: bash tests/installer/check.sh
+      - run: bash tests/installer/recovery.sh
+      - run: bash tests/installer/archive.sh
+      - run: bash tests/installer/preflight.sh
+      - run: bash tests/installer/uninstall.sh
+      - run: bash scripts/package-linux.sh 0.2.0-dev ${{ matrix.arch }}
+      - uses: anchore/sbom-action@v0
+        with:
+          path: artifacts/editions
+          output-file: artifacts/editions/sbom.spdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mvm-linux-${{ matrix.arch }}
+          path: artifacts/editions
+
+
+
+

@@ -2,7 +2,7 @@
 
 Linux management panel for MikroTik OpenVPN, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
 
-[v1.0.0 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.0). [Public stable installation and native Ubuntu 24.04 lifecycle pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605545), and [security/race/container checks pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39173605706).
+[v1.0.2 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.2), with automatic server-IP HTTPS and live installation progress. [Public installation and native Ubuntu 24.04 lifecycle pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39176357352), and [security/race/container checks pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39176357366).
 
 **Release scope:** stable native Linux manager. RouterOS VPN automation remains experimental and disabled by default. Actual router/client interoperability, effective access restrictions and certificate offboarding still require an authorized lab. This release does not certify those workflows for production.
 
@@ -70,6 +70,7 @@ Windows source builds can use `.tools/go/bin/go.exe`. Bash mocks and cross-build
 Preserve the database, configuration and external master key together. Existing bbolt installations require explicit offline migration to a new SQLite destination; never point the Linux server at a legacy database or generate a replacement master key. Normal uninstall preserves persistent data and does not revoke router credentials.
 
 - [1.0.0 release notes](docs/releases/1.0.0.md)
+- [1.0.2 direct IP/domain HTTPS and installer progress](docs/releases/1.0.2.md)
 - [Installation](docs/operations/installation.md), [upgrade](docs/operations/upgrade.md), [backup/restore](docs/operations/backup-restore.md), [migration](docs/operations/edition-migration.md)
 - [Limitations](docs/limitations.md), [threat model](docs/security/threat-model.md), [secrets and PKI](docs/security/secrets-and-pki.md)
 - [Linux edition](editions/linux/README.md), [Lite edition](editions/mikrotik/README.md), [authorized lab](tests/lab/README.md)

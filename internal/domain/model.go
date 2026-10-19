@@ -70,9 +70,12 @@ type Snapshot struct {
 	Warnings     []string          `json:"warnings"`
 }
 type ServerSpec struct {
+	IPsecSecret   string   `json:"ipsec_secret,omitempty"`
+	Protocol      string   `json:"protocol,omitempty"`
 	RouterID      string   `json:"router_id"`
 	Name          string   `json:"name"`
 	Endpoint      string   `json:"endpoint"`
+	PublicIP      string   `json:"public_ip,omitempty"`
 	Port          int      `json:"port"`
 	Transport     string   `json:"transport"`
 	Subnet        string   `json:"subnet"`
@@ -95,6 +98,8 @@ type Server struct {
 	RemoteID    string     `json:"remote_id"`
 }
 type VPNUser struct {
+	Protocol    string `json:"protocol,omitempty"`
+	PublicKey   string `json:"public_key,omitempty"`
 	ID          string `json:"id"`
 	RouterID    string `json:"router_id"`
 	ServerID    string `json:"server_id"`
@@ -107,33 +112,48 @@ type VPNUser struct {
 	Disabled    bool   `json:"disabled"`
 }
 type Resource struct {
-	Path    string            `json:"path"`
-	ID      string            `json:"id"`
-	Marker  string            `json:"marker"`
-	Desired map[string]string `json:"desired"`
+	Path     string            `json:"path"`
+	ID       string            `json:"id"`
+	Marker   string            `json:"marker"`
+	Desired  map[string]string `json:"desired"`
+	Previous map[string]string `json:"previous,omitempty"`
 }
 type Step struct {
-	Path   string            `json:"path"`
-	Method string            `json:"method"`
-	Values map[string]string `json:"values"`
-	Secret bool              `json:"secret"`
+	Path     string            `json:"path"`
+	Method   string            `json:"method"`
+	Values   map[string]string `json:"values"`
+	Secret   bool              `json:"secret"`
+	Previous map[string]string `json:"previous,omitempty"`
 }
 type Job struct {
-	ID          string     `json:"id"`
-	RouterID    string     `json:"router_id"`
-	Actor       string     `json:"actor"`
-	Kind        string     `json:"kind"`
-	Key         string     `json:"key"`
-	Fingerprint string     `json:"fingerprint"`
-	State       string     `json:"state"`
-	Error       string     `json:"error,omitempty"`
-	Created     time.Time  `json:"created"`
-	Updated     time.Time  `json:"updated"`
-	Steps       []Step     `json:"steps"`
-	Owned       []Resource `json:"owned"`
-	Server      *Server    `json:"server,omitempty"`
-	User        *VPNUser   `json:"user,omitempty"`
-	InFlight    bool       `json:"in_flight"`
+	Network     *NetworkSpec `json:"network,omitempty"`
+	ID          string       `json:"id"`
+	RouterID    string       `json:"router_id"`
+	Actor       string       `json:"actor"`
+	Kind        string       `json:"kind"`
+	Key         string       `json:"key"`
+	Fingerprint string       `json:"fingerprint"`
+	State       string       `json:"state"`
+	Error       string       `json:"error,omitempty"`
+	Created     time.Time    `json:"created"`
+	Updated     time.Time    `json:"updated"`
+	Steps       []Step       `json:"steps"`
+	Owned       []Resource   `json:"owned"`
+	Server      *Server      `json:"server,omitempty"`
+	User        *VPNUser     `json:"user,omitempty"`
+	InFlight    bool         `json:"in_flight"`
+}
+
+type NetworkSpec struct {
+	RouterID       string   `json:"router_id"`
+	SourceID       string   `json:"source_id"`
+	SourceLabel    string   `json:"source_label"`
+	Addresses      []string `json:"addresses"`
+	OutInterfaceID string   `json:"out_interface_id"`
+	OutInterface   string   `json:"out_interface"`
+	ForwardAnchor  string   `json:"forward_anchor"`
+	NATAnchor      string   `json:"nat_anchor"`
+	AllowForward   bool     `json:"allow_forward"`
 }
 type Audit struct {
 	ID     string    `json:"id"`
@@ -149,6 +169,7 @@ type Session struct {
 	Expires   time.Time
 }
 type Delivery struct {
+	Protocol  string
 	ID        string
 	UserID    string
 	AccountID string

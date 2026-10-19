@@ -1,0 +1,23 @@
+{{define "network-page"}}
+<section class="page-heading"><div><span class="eyebrow">NAT · Firewall · Interfaces</span><h1>{{t .Lang "network"}}</h1><p>{{t .Lang "networkIntro"}}</p></div></section>
+<form class="glass-card firewall-inspector" action="/" method="get">
+ <input type="hidden" name="page" value="network">
+ <label>{{t .Lang "router"}}<select name="router_id" required><option value="">{{t .Lang "selectRouter"}}</option>{{range .Routers}}<option value="{{.ID}}" {{if eq .ID $.SelectedRouterID}}selected{{end}}>{{.Name}} · {{.Status}}</option>{{end}}</select></label>
+ <button>{{t .Lang "loadNetworkChoices"}}</button>
+</form>
+{{if .NetworkOptions}}
+{{if or (eq (len .NetworkOptions.Sources) 0) (eq (len .NetworkOptions.Interfaces) 0)}}<div class="notice">{{t .Lang "networkChoicesMissing"}}</div>{{end}}
+<form id="network-form" action="/api/v1/network/preview" method="post" class="glass-card form-grid">
+ {{template "csrf" .}}<input type="hidden" name="router_id" value="{{.SelectedRouterID}}"><input type="hidden" name="idempotency_key" value="{{.RequestKey}}"><input type="hidden" name="nat_anchor" value="{{.NetworkOptions.NATAnchor}}"><input type="hidden" name="forward_anchor" value="{{.NetworkOptions.ForwardAnchor}}">
+ <div id="network-errors" class="notice wide" role="alert" tabindex="-1" hidden></div>
+ <label>{{t .Lang "natSource"}}<select name="source_id" required><option value="">{{t .Lang "selectExistingRange"}}</option>{{range .NetworkOptions.Sources}}<option value="{{.ID}}">{{.Label}}</option>{{end}}</select><small>{{t .Lang "existingRangesHelp"}}</small></label>
+ <label>{{t .Lang "natOutput"}}<select name="out_interface_id" required><option value="">{{t .Lang "selectExistingInterface"}}</option>{{range .NetworkOptions.Interfaces}}<option value="{{.ID}}">{{.Name}} · {{.Type}}{{if not .Running}} · {{t $.Lang "interfaceNotRunning"}}{{end}}</option>{{end}}</select><small>{{t .Lang "natOutputHelp"}}</small></label>
+ <label class="checkbox wide"><input name="allow_forward" type="checkbox" value="yes" {{if not .NetworkOptions.ForwardAnchor}}disabled{{end}}>{{t .Lang "allowSelectedForward"}}</label>
+ {{if not .NetworkOptions.ForwardAnchor}}<small class="wide">{{t .Lang "networkForwardUnavailable"}}</small>{{end}}
+ <p class="wide">{{t .Lang "networkPolicyHelp"}}</p>
+ <div class="actions wide"><button class="primary" type="submit" {{if or (not .CanConfigureNetwork) (eq (len .NetworkOptions.Sources) 0) (eq (len .NetworkOptions.Interfaces) 0)}}disabled{{end}}>{{t .Lang "saveReview"}}</button></div>
+ {{if not .CanConfigureNetwork}}<p class="wide">{{t .Lang "networkAdminOnly"}}</p>{{end}}
+</form>
+<section class="glass-card"><h2>{{t .Lang "existingNetworkRules"}}</h2><details><summary>NAT</summary><pre dir="ltr">{{json .NetworkOptions.NAT}}</pre></details><details><summary>Firewall</summary><pre dir="ltr">{{json .NetworkOptions.Filter}}</pre></details></section>
+{{else}}<div class="notice">{{t .Lang "chooseRouterForNetwork"}}</div>{{end}}
+{{end}}

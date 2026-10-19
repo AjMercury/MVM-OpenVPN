@@ -6,7 +6,11 @@ root=$(cd -- "$(dirname -- "$0")/../.." && pwd)
 for port in 1024 8443 65535; do validate_port "$port"; done
 for port in 0 1023 65536 008443 abc '8443;id'; do if validate_port "$port"; then exit 1; fi; done
 validate_password 'a long secure passphrase' 'a long secure passphrase'
-if validate_password short short; then exit 1; fi
+validate_password short short
+validate_password 1 1
+if validate_password '' ''; then exit 1; fi
+oversized=$(printf '%0234d' 0)
+if validate_password "$oversized" "$oversized"; then exit 1; fi
 if validate_password 'a long secure passphrase' 'a different passphrase'; then exit 1; fi
 ss(){ printf 'LISTEN 0 4096 127.0.0.1:8443\n'; }
 if port_available 8443; then exit 1; fi

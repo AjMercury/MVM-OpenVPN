@@ -2,15 +2,15 @@
 # Interactive input is never accepted from arguments or environment variables.
 validate_port() { [[ $1 =~ ^[1-9][0-9]{3,4}$ && $1 -ge 1024 && $1 -le 65535 ]]; }
 port_available() { local listeners; listeners=$(ss -H -ltn "sport = :$1") || die 'Cannot inspect listening ports'; [[ -z $listeners ]]; }
-validate_password() { LC_ALL=C; [[ ${#1} -ge 14 && ${#1} -le 233 && $1 == "$2" ]]; }
+validate_password() { LC_ALL=C; [[ ${#1} -ge 1 && ${#1} -le 233 && $1 == "$2" ]]; }
 read_password() {
  set +x
  local confirmation
  while true; do
-  IFS= read -r -s -p 'Administrator password (14–233 bytes): ' ADMIN_PASSWORD; printf '\n'
+  IFS= read -r -s -p 'Administrator password (1–233 bytes, your choice): ' ADMIN_PASSWORD; printf '\n'
   IFS= read -r -s -p 'Confirm password: ' confirmation; printf '\n'
   if validate_password "$ADMIN_PASSWORD" "$confirmation"; then unset confirmation; return; fi
-  printf 'Passwords must match and contain 14–233 bytes. Use a long unique passphrase.\n'
+  printf 'Passwords must match, must not be empty, and must not exceed 233 bytes.\n'
  done
 }
 validate_tls() {

@@ -49,3 +49,21 @@ func TestMaintenanceExpiresPreviewsAndLegacySessions(t *testing.T) {
 		}
 	}
 }
+
+func TestMaintenanceScrubsTerminalIPsecSecret(t *testing.T) {
+	s := testService(t)
+	j := domain.Job{ID: "old-ipsec", RouterID: "r", State: "COMPLETED", Steps: []domain.Step{{Values: map[string]string{"ipsec-secret": "legacy-secret"}}}}
+	if err := s.Repo.Put("jobs", j.ID, j); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PurgeExpired(); err != nil {
+		t.Fatal(err)
+	}
+	j = domain.Job{ID: j.ID}
+	if err := s.Repo.Get("jobs", j.ID, &j); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := j.Steps[0].Values["ipsec-secret"]; ok {
+		t.Fatal("terminal IPsec secret retained")
+	}
+}

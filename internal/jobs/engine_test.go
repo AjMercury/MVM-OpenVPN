@@ -62,8 +62,62 @@ func (f *fakeAPI) Call(_ context.Context, method, path string, body any) ([]rout
 	case "DELETE":
 		delete(f.records, path)
 		return nil, nil
+	case "POST":
+		if strings.HasSuffix(path, "/set") {
+			r := f.records[strings.TrimSuffix(path, "/set")]
+			for key, value := range body.(map[string]string) {
+				r[key] = value
+			}
+		}
+		return nil, nil
 	}
 	return nil, nil
+}
+
+func TestSingletonRollbackAndPreviewDrift(t *testing.T) {
+	e := testEngine(t)
+	f := &fakeAPI{records: map[string]routers.Record{"interface/sstp-server/server": {"enabled": "yes", "certificate": "mvm-cert"}}}
+	j := testJob()
+	j.Owned = []domain.Resource{{Path: "interface/sstp-server/server", Desired: map[string]string{"enabled": "yes", "certificate": "mvm-cert"}, Previous: map[string]string{"enabled": "no", "certificate": "none"}}}
+	if err := e.rollback(context.Background(), f, j); err != nil {
+		t.Fatal(err)
+	}
+	if f.records["interface/sstp-server/server"]["enabled"] != "no" || len(j.Owned) != 0 {
+		t.Fatal("singleton was not restored")
+	}
+	j = testJob()
+	j.Steps = []domain.Step{{Path: "interface/sstp-server/server/set", Method: "POST", Values: map[string]string{"enabled": "yes"}, Previous: map[string]string{"enabled": "yes"}}}
+	if err := e.Apply(context.Background(), f, j); err == nil || f.puts != 0 || f.records["interface/sstp-server/server"]["enabled"] != "no" {
+		t.Fatal("stale preview changed a singleton")
+	}
+}
+
+func TestTerminalIPsecSecretIsScrubbed(t *testing.T) {
+	e := testEngine(t)
+	j := testJob()
+	j.State = "COMPLETED"
+	j.Steps = []domain.Step{{Path: "interface/l2tp-server/server/set", Method: "POST", Values: map[string]string{"ipsec-secret": "do-not-retain", "enabled": "yes"}}}
+	if err := e.Save(j); err != nil {
+		t.Fatal(err)
+	}
+	var stored domain.Job
+	if err := e.Repo.Get("jobs", j.ID, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := stored.Steps[0].Values["ipsec-secret"]; ok {
+		t.Fatal("terminal PSK retained")
+	}
+}
+
+func TestListenerBlockedBeforeUnverifiedFirewall(t *testing.T) {
+	e := testEngine(t)
+	f := &fakeAPI{records: map[string]routers.Record{}}
+	j := testJob()
+	j.Server = &domain.Server{Spec: domain.ServerSpec{InputAnchor: "*A", ForwardAnchor: "*B"}}
+	j.Steps = []domain.Step{{Path: "interface/ovpn-server/server", Method: "PUT", Values: map[string]string{"name": "listener", "disabled": "no"}}}
+	if err := e.Apply(context.Background(), f, j); err == nil || f.puts != 0 || j.State != "MANUAL_INTERVENTION" {
+		t.Fatal("listener activated without reviewed firewall anchors")
+	}
 }
 
 func TestRollbackRefusesExternalDependency(t *testing.T) {

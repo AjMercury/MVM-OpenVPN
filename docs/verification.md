@@ -1,3 +1,9 @@
+# 1.1.0 local audit (2026-10-20)
+
+Full uncached Go tests, Go vet, manifest validation, Go formatting and JavaScript syntax checks pass locally. Mock-router regressions cover both SQLite and bbolt, including automatic WireGuard address allocation, configuration delivery, rejecting unreviewed peers between preview/application, rejecting peer scope changes before disable, and rejecting OpenVPN export after ownership drift. Language-switch context and legacy terminal IPsec secret cleanup have regression coverage.
+
+The Git Bash installer suite passes with bundled Python. Linux-only controlling-PTY, POSIX permissions, systemd lifecycle, race detection and container scans require hosted Linux validation. Local govulncheck could not retrieve its database (vuln.go.dev returned HTTP 403); hosted vulnerability results must be checked before release. No real RouterOS or VPN client test is claimed.
+
 # 1.0.3 optional HTTPS and terminal manager
 
 [Ubuntu lifecycle run 39178017699](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178017699) passes native HTTP installation with detected IPv4, domain/IP login, self-signed HTTPS, port migration to 8444, return to HTTP, same-version repair, update/rollback and uninstall. Accounts and master keys are preserved. The first expanded lifecycle run reached systemd's default start-rate limit after deliberately rapid transitions; independent test scenarios now reset that counter without weakening the shipped service policy.

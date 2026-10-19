@@ -16,9 +16,9 @@ func TestBootstrapAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	for _, password := range []string{"short", string(bytes.Repeat([]byte{'a'}, 234))} {
+	for _, password := range []string{"", string(bytes.Repeat([]byte{'a'}, 234))} {
 		if s.BootstrapAdmin("admin", password, "UTC", "en") == nil {
-			t.Fatal("weak/oversized password accepted")
+			t.Fatal("empty/oversized password accepted")
 		}
 	}
 	if s.BootstrapAdmin("bad user", "long unique passphrase", "UTC", "en") == nil {
@@ -27,7 +27,7 @@ func TestBootstrapAdmin(t *testing.T) {
 	if s.BootstrapAdmin("admin", "long unique passphrase", "bad/zone", "en") == nil {
 		t.Fatal("invalid timezone accepted")
 	}
-	if err = s.BootstrapAdmin("owner", "long unique passphrase", "Asia/Tehran", "fa"); err != nil {
+	if err = s.BootstrapAdmin("owner", "1", "Asia/Tehran", "fa"); err != nil {
 		t.Fatal(err)
 	}
 	if s.BootstrapAdmin("attacker", "another long passphrase", "UTC", "en") == nil {
@@ -37,7 +37,7 @@ func TestBootstrapAdmin(t *testing.T) {
 	if err = s.List("accounts", &accounts); err != nil {
 		t.Fatal(err)
 	}
-	if len(accounts) != 1 || accounts[0].Role != domain.Super || !security.CheckPassword(accounts[0].Hash, "long unique passphrase") {
+	if len(accounts) != 1 || accounts[0].Role != domain.Super || !security.CheckPassword(accounts[0].Hash, "1") {
 		t.Fatal("invalid administrator")
 	}
 	var prefs map[string]string

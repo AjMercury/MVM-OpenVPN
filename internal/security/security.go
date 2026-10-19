@@ -23,8 +23,8 @@ func Token() string {
 }
 func Digest(s string) string { sum := sha256.Sum256([]byte(s)); return hex.EncodeToString(sum[:]) }
 func HashPassword(password string) (string, error) {
-	if len(password) < 14 || len(password) > 233 {
-		return "", errors.New("password must contain 14–233 bytes")
+	if len(password) < 1 || len(password) > 233 {
+		return "", errors.New("password must contain 1–233 bytes")
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {

@@ -87,7 +87,7 @@ func TestOfflineBootstrap(t *testing.T) {
 	if err := run(); err != nil {
 		t.Fatal(err)
 	}
-	for index, password := range []string{"short", "secure unique passphrase", "replacement passphrase"} {
+	for index, password := range []string{"", "1", "replacement passphrase"} {
 		r, w, err := os.Pipe()
 		if err != nil {
 			t.Fatal(err)
@@ -110,7 +110,7 @@ func TestOfflineBootstrap(t *testing.T) {
 	}
 	defer repo.Close()
 	var accounts []domain.Account
-	if err = repo.List("accounts", &accounts); err != nil || len(accounts) != 1 || !security.CheckPassword(accounts[0].Hash, "secure unique passphrase") {
+	if err = repo.List("accounts", &accounts); err != nil || len(accounts) != 1 || !security.CheckPassword(accounts[0].Hash, "1") {
 		t.Fatal("bootstrap preservation failed", err)
 	}
 }

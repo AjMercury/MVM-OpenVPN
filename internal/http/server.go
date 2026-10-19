@@ -17,8 +17,10 @@ import (
 	"mikrotik-vpn-manager/internal/provisioning"
 	"mikrotik-vpn-manager/internal/routers"
 	"mikrotik-vpn-manager/internal/security"
+	"mikrotik-vpn-manager/internal/vpn/protocols"
 	assets "mikrotik-vpn-manager/web"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,6 +106,8 @@ func (h *Server) Routes() *gin.Engine {
 	api := r.Group("/api/v1", h.auth, h.csrf)
 	api.POST("/logout", h.logout)
 	api.GET("/routers", h.routerList)
+	api.GET("/monitoring", h.monitoringData)
+	api.POST("/network/preview", h.prepareNetwork)
 	api.POST("/routers", h.addRouter)
 	api.POST("/routers/:id/sync", h.syncRouter)
 	api.DELETE("/routers/:id", h.removeRouter)
@@ -239,6 +243,17 @@ func (h *Server) render(c *gin.Context, status int, data gin.H) {
 		c.SetCookie("mvm_language", q, 31536000, "/", "", h.secureCookies(), true)
 	}
 	data["Lang"] = lang
+	query := c.Request.URL.Query()
+	for _, key := range []string{"token", "password", "passphrase", "csrf"} {
+		query.Del(key)
+	}
+	query.Set("page", fmt.Sprint(data["Page"]))
+	if lang == "en" {
+		query.Set("lang", "fa")
+	} else {
+		query.Set("lang", "en")
+	}
+	data["LanguageURL"] = (&url.URL{Path: "/", RawQuery: query.Encode()}).String()
 	data["Dir"] = "ltr"
 	if lang == "fa" {
 		data["Dir"] = "rtl"
@@ -396,6 +411,13 @@ func (h *Server) page(c *gin.Context) {
 		page = "portal"
 	}
 	data := gin.H{"Page": page, "Account": a}
+	protocol := c.DefaultQuery("protocol", "openvpn")
+	if (page == "new-server" || page == "users" || page == "new-user") && protocol != "openvpn" && protocol != "wireguard" && protocol != "sstp" && protocol != "ikev2" && protocol != "l2tp" {
+		h.fail(c, 400, errors.New("unsupported VPN protocol"))
+		return
+	}
+	data["Protocol"] = protocol
+	data["DefaultPort"] = map[string]int{"openvpn": 1194, "wireguard": 51820, "sstp": 443, "ikev2": 500, "l2tp": 1701}[protocol]
 	var allRouters []domain.Router
 	var servers []domain.Server
 	var users []domain.VPNUser
@@ -414,7 +436,7 @@ func (h *Server) page(c *gin.Context) {
 		if a.Role != domain.EndUser && a.Can("read", r.ID) {
 			r.Password = ""
 			r.CA = ""
-			if time.Since(r.LastSuccess) > 2*time.Minute && r.Status != "unknown" {
+			if time.Since(r.LastSuccess) > 2*time.Minute && (r.Status == "online" || r.Status == "degraded") {
 				r.Status = "stale"
 			}
 			visibleRouters = append(visibleRouters, r)
@@ -441,12 +463,48 @@ func (h *Server) page(c *gin.Context) {
 	sort.Slice(visibleJobs, func(i, j int) bool { return visibleJobs[i].Created.After(visibleJobs[j].Created) })
 	data["Routers"] = visibleRouters
 	data["Servers"] = visibleServers
+	clientServers := []domain.Server{}
+	for _, server := range visibleServers {
+		if protocols.Name(server.Spec) == protocol && protocol != "ikev2" {
+			clientServers = append(clientServers, server)
+		}
+	}
+	data["ClientServers"] = clientServers
 	data["Users"] = visibleUsers
+	if page == "users" || page == "new-user" {
+		filtered := []domain.VPNUser{}
+		for _, u := range visibleUsers {
+			p := u.Protocol
+			if p == "" {
+				p = "openvpn"
+			}
+			if p == protocol {
+				filtered = append(filtered, u)
+			}
+		}
+		data["Users"] = filtered
+	}
 	data["Jobs"] = visibleJobs
+	states := map[string]int{}
+	for _, j := range visibleJobs {
+		states[j.State]++
+	}
+	data["JobStates"] = states
 	data["RequestKey"] = app.ID()
 	data["SelectedRouterID"] = ""
 	data["InputAnchor"] = ""
 	data["ForwardAnchor"] = ""
+	if page == "network" && c.Query("router_id") != "" {
+		routerID := c.Query("router_id")
+		options, e := h.App.NetworkOptions(c.Request.Context(), a, routerID)
+		if e != nil {
+			h.fail(c, 400, e)
+			return
+		}
+		data["NetworkOptions"] = options
+		data["SelectedRouterID"] = routerID
+		data["CanConfigureNetwork"] = a.Can("router", routerID)
+	}
 	if page == "new-server" && c.Query("router_id") != "" {
 		r, e := h.App.Router(a, c.Query("router_id"), "vpn")
 		if e != nil {
@@ -510,6 +568,14 @@ func (h *Server) page(c *gin.Context) {
 				return
 			}
 			path := "ppp/active"
+			if page == "sessions" {
+				switch c.Query("protocol") {
+				case "wireguard":
+					path = "interface/wireguard/peers"
+				case "ikev2":
+					path = "ip/ipsec/active-peers"
+				}
+			}
 			if page == "certificates" {
 				path = "certificate"
 			}
@@ -517,6 +583,15 @@ func (h *Server) page(c *gin.Context) {
 			if e != nil {
 				h.fail(c, 502, e)
 				return
+			}
+			if page == "sessions" {
+				for _, row := range rows {
+					for key := range row {
+						if key == "private-key" || key == "preshared-key" || key == "secret" || key == "password" {
+							delete(row, key)
+						}
+					}
+				}
 			}
 			data["Rows"] = rows
 			data["ObservedAt"] = time.Now().UTC()
@@ -548,7 +623,7 @@ func (h *Server) page(c *gin.Context) {
 			accounts[i].Hash = ""
 		}
 		data["Accounts"] = accounts
-	case "dashboard", "routers", "new-router", "servers", "new-server", "users", "new-user", "jobs", "portal", "delivery", "settings":
+	case "dashboard", "routers", "new-router", "servers", "new-server", "users", "new-user", "jobs", "portal", "delivery", "settings", "monitoring", "network":
 	default:
 		h.fail(c, 404, errors.New("page not found"))
 		return
@@ -561,7 +636,7 @@ func redactJob(j domain.Job) domain.Job {
 		steps[i] = s
 		steps[i].Values = map[string]string{}
 		for k, v := range s.Values {
-			if k == "password" {
+			if k == "password" || k == "ipsec-secret" || k == "private-key" || k == "preshared-key" {
 				v = "[REDACTED]"
 			}
 			steps[i].Values[k] = v
@@ -625,6 +700,10 @@ func (h *Server) syncRouter(c *gin.Context) {
 	}
 	r.Password = ""
 	r.CA = ""
+	if c.PostForm("return_page") == "monitoring" {
+		h.success(c, r, "/?page=monitoring")
+		return
+	}
 	h.success(c, r, "/?page=router&id="+r.ID)
 }
 func (h *Server) removeRouter(c *gin.Context) {
@@ -692,9 +771,34 @@ func (h *Server) prepareServer(c *gin.Context) {
 	} else {
 		in.Spec = domain.ServerSpec{RouterID: c.PostForm("router_id"), Name: c.PostForm("name"), Endpoint: c.PostForm("endpoint"), Transport: c.PostForm("transport"), Subnet: c.PostForm("subnet"), Start: c.PostForm("pool_start"), End: c.PostForm("pool_end"), Gateway: c.PostForm("gateway"), DNS: split(c.PostForm("dns")), Allowed: split(c.PostForm("allowed")), InputAnchor: c.PostForm("input_anchor"), ForwardAnchor: c.PostForm("forward_anchor")}
 		in.Spec.Port, _ = strconv.Atoi(c.PostForm("port"))
+		in.Spec.PublicIP = c.PostForm("public_ip")
+		in.Spec.Protocol = c.PostForm("protocol")
+		in.Spec.IPsecSecret = c.PostForm("ipsec_secret")
 		in.Key = c.PostForm("idempotency_key")
 	}
 	j, e := h.App.PrepareServer(c.Request.Context(), account(c), in.Spec, in.Key)
+	if e != nil {
+		h.fail(c, 400, e)
+		return
+	}
+	h.success(c, redactJob(*j), "/?page=job&id="+j.ID)
+}
+
+func (h *Server) prepareNetwork(c *gin.Context) {
+	var in struct {
+		Spec domain.NetworkSpec `json:"spec"`
+		Key  string             `json:"idempotency_key"`
+	}
+	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
+		if e := decode(c, &in); e != nil {
+			h.fail(c, 400, e)
+			return
+		}
+	} else {
+		in.Spec = domain.NetworkSpec{RouterID: c.PostForm("router_id"), SourceID: c.PostForm("source_id"), OutInterfaceID: c.PostForm("out_interface_id"), NATAnchor: c.PostForm("nat_anchor"), ForwardAnchor: c.PostForm("forward_anchor"), AllowForward: c.PostForm("allow_forward") == "yes"}
+		in.Key = c.PostForm("idempotency_key")
+	}
+	j, e := h.App.PrepareNetwork(c.Request.Context(), account(c), in.Spec, in.Key)
 	if e != nil {
 		h.fail(c, 400, e)
 		return
@@ -755,7 +859,13 @@ func (h *Server) userAction(c *gin.Context) {
 		h.fail(c, 409, e)
 		return
 	}
-	h.success(c, gin.H{"ok": true}, "/?page=users")
+	var user domain.VPNUser
+	_ = h.App.Repo.Get("users", c.Param("id"), &user)
+	p := user.Protocol
+	if p == "" {
+		p = "openvpn"
+	}
+	h.success(c, gin.H{"ok": true}, "/?page=users&protocol="+p)
 }
 func (h *Server) export(c *gin.Context) {
 	var in struct {
@@ -784,11 +894,25 @@ func (h *Server) export(c *gin.Context) {
 		h.fail(c, 500, e)
 		return
 	}
-	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
-		c.JSON(200, gin.H{"url": link, "expires_in_seconds": 300, "mode": "authenticated_download_link"})
+	var user domain.VPNUser
+	if e = h.App.Repo.Get("users", c.Param("id"), &user); e != nil {
+		h.fail(c, 500, e)
 		return
 	}
-	h.render(c, 200, gin.H{"Page": "issued", "Account": account(c), "Token": token, "Link": link, "QR": template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
+	mode := "authenticated_download_link"
+	if user.Protocol == "wireguard" {
+		png, e = provisioning.WireGuardQR(data)
+		if e != nil {
+			h.fail(c, 400, e)
+			return
+		}
+		mode = "wireguard_native_config"
+	}
+	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
+		c.JSON(200, gin.H{"url": link, "expires_in_seconds": 300, "mode": mode, "qr_png": "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)})
+		return
+	}
+	h.render(c, 200, gin.H{"Page": "issued", "Account": account(c), "Token": token, "Link": link, "NativeWireGuard": user.Protocol == "wireguard", "QR": template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 }
 func (h *Server) download(c *gin.Context) {
 	var in struct {
@@ -806,6 +930,8 @@ func (h *Server) download(c *gin.Context) {
 		h.fail(c, 500, e)
 		return
 	}
+	var delivery domain.Delivery
+	_ = h.App.Repo.Get("deliveries", security.Digest(in.Token), &delivery)
 	data, e := h.App.Consume(account(c), in.Token)
 	if e != nil {
 		h.fail(c, 403, e)
@@ -815,7 +941,25 @@ func (h *Server) download(c *gin.Context) {
 		h.Log.Error("download consumed audit failed", "account", account(c).ID, "request_id", c.Writer.Header().Get("X-Request-ID"))
 	}
 	c.Header("Content-Disposition", `attachment; filename="client.ovpn"`)
+	if delivery.Protocol == "wireguard" {
+		c.Header("Content-Disposition", `attachment; filename="client.conf"`)
+		c.Data(200, "text/plain; charset=utf-8", data)
+		return
+	}
 	c.Data(200, "application/x-openvpn-profile", data)
+}
+
+func (h *Server) monitoringData(c *gin.Context) {
+	if account(c).Role == domain.EndUser {
+		h.fail(c, 403, errors.New("permission denied"))
+		return
+	}
+	rows, e := h.App.Monitoring(account(c))
+	if e != nil {
+		h.fail(c, 500, e)
+		return
+	}
+	c.JSON(200, gin.H{"routers": rows})
 }
 func (h *Server) revokeDelivery(c *gin.Context) {
 	token := c.PostForm("token")

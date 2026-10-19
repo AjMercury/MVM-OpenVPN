@@ -16,8 +16,17 @@ import (
 var Identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,26}$`)
 
 func Validate(s domain.ServerSpec) error {
-	if !Identifier.MatchString(s.Name) || !routers.ValidHost(s.Endpoint) {
-		return errors.New("invalid server name or public endpoint")
+	if !Identifier.MatchString(s.Name) {
+		return errors.New("name: use 1–27 English letters, numbers, dots, underscores or hyphens; start with a letter or number")
+	}
+	if !routers.ValidHost(s.Endpoint) {
+		return errors.New("endpoint: enter a domain or IP address without https://, a port or a path")
+	}
+	if s.PublicIP != "" {
+		a, e := netip.ParseAddr(s.PublicIP)
+		if e != nil || !a.IsGlobalUnicast() || a.IsPrivate() {
+			return errors.New("public_ip: enter a public IP address")
+		}
 	}
 	if s.Port < 1024 || s.Port > 65535 || s.Transport != "tcp" && s.Transport != "udp" {
 		return errors.New("use TCP or UDP on an unprivileged port 1024–65535")
@@ -76,6 +85,11 @@ func Preflight(ctx context.Context, c routers.API, s domain.ServerSpec) error {
 			return errors.New("existing PPP identities may authenticate to OpenVPN; isolate before provisioning")
 		}
 	}
+	return NetworkPreflight(ctx, c, s)
+}
+
+// NetworkPreflight checks address allocation and reviewed firewall anchors.
+func NetworkPreflight(ctx context.Context, c routers.API, s domain.ServerSpec) error {
 	addresses, e := routers.List(ctx, c, "ip/address")
 	if e != nil {
 		return e

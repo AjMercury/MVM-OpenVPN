@@ -14,6 +14,7 @@ import (
 	"mikrotik-vpn-manager/internal/security"
 	"mikrotik-vpn-manager/internal/storage"
 	"mikrotik-vpn-manager/internal/vpn/openvpn"
+	"mikrotik-vpn-manager/internal/vpn/protocols"
 	"net/netip"
 	"strings"
 	"time"
@@ -79,6 +80,7 @@ func (s *Service) Sync(ctx context.Context, a domain.Account, id string) (domain
 	if e != nil {
 		r.Status = "offline"
 		_ = s.Repo.Put("routers", id, r)
+		_ = s.recordMonitor(ctx, nil, r)
 		return r, e
 	}
 	r.Status = "online"
@@ -92,10 +94,24 @@ func (s *Service) Sync(ctx context.Context, a domain.Account, id string) (domain
 	if e = s.Repo.Put("routers", id, r); e != nil {
 		return r, e
 	}
+	if e = s.recordMonitor(ctx, c, r); e != nil {
+		return r, e
+	}
 	e = s.Audit(a.ID, "router.sync", id, "observed")
 	return r, e
 }
 func (s *Service) PrepareServer(ctx context.Context, a domain.Account, spec domain.ServerSpec, key string) (*domain.Job, error) {
+	spec.Endpoint = strings.TrimSpace(spec.Endpoint)
+	spec.PublicIP = strings.TrimSpace(spec.PublicIP)
+	if spec.Endpoint == "" {
+		spec.Endpoint = spec.PublicIP
+	}
+	if e := protocols.Validate(spec); e != nil {
+		return nil, e
+	}
+	if protocols.Name(spec) == "l2tp" && len(spec.IPsecSecret) < 14 {
+		return nil, errors.New("provide an IPsec shared secret of at least 14 bytes")
+	}
 	r, e := s.Router(a, spec.RouterID, "vpn")
 	if e != nil {
 		return nil, e
@@ -109,7 +125,7 @@ func (s *Service) PrepareServer(ctx context.Context, a domain.Account, spec doma
 	if e != nil {
 		return nil, e
 	}
-	if e = openvpn.Preflight(ctx, c, spec); e != nil {
+	if e = protocols.Preflight(ctx, c, spec); e != nil {
 		return nil, e
 	}
 	var servers []domain.Server
@@ -117,11 +133,14 @@ func (s *Service) PrepareServer(ctx context.Context, a domain.Account, spec doma
 		return nil, e
 	}
 	for _, v := range servers {
-		if v.Spec.RouterID == r.ID {
-			return nil, errors.New("one managed OpenVPN server per router")
+		if v.Spec.RouterID == r.ID && (protocols.Name(v.Spec) == protocols.Name(spec) || v.Spec.Subnet == spec.Subnet) {
+			return nil, errors.New("one managed server per protocol per router; choose a distinct subnet for each protocol")
 		}
 	}
-	j := openvpn.Plan(ID(), spec)
+	j, e := protocols.Plan(ctx, c, ID(), spec)
+	if e != nil {
+		return nil, e
+	}
 	j.Actor = a.ID
 	j.Key = key
 	j.Fingerprint = security.Digest(jobs.Fingerprint(spec))
@@ -147,6 +166,12 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 	var server domain.Server
 	if e := s.Repo.Get("servers", in.ServerID, &server); e != nil {
 		return nil, e
+	}
+	if protocols.Name(server.Spec) == "wireguard" {
+		return s.prepareWireGuardUser(ctx, a, server, in)
+	}
+	if protocols.Name(server.Spec) == "ikev2" {
+		return nil, errors.New("IKEv2 client certificate enrollment is not available")
 	}
 	r, e := s.Router(a, server.Spec.RouterID, "vpn")
 	if e != nil {
@@ -221,8 +246,13 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 	if !ipam.Contains(server.Spec, in.Address) || used[in.Address] {
 		return nil, errors.New("address unavailable or outside server pool")
 	}
-	u := domain.VPNUser{RouterID: r.ID, ServerID: server.ID, AccountID: in.AccountID, Username: in.Username, Address: in.Address}
+	u := domain.VPNUser{Protocol: protocols.Name(server.Spec), RouterID: r.ID, ServerID: server.ID, AccountID: in.AccountID, Username: in.Username, Address: in.Address}
 	j := openvpn.UserPlan(ID(), server, u, in.Password)
+	if u.Protocol != "openvpn" {
+		j.Steps = j.Steps[2:]
+		j.User.Certificate = ""
+		j.Steps[0].Values["service"] = u.Protocol
+	}
 	j.Actor = a.ID
 	j.Key = in.Key
 	j.Fingerprint = security.Digest(jobs.Fingerprint(in))
@@ -236,7 +266,11 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 	if e := s.Repo.Get("jobs", id, &j); e != nil {
 		return e
 	}
-	r, e := s.Router(a, j.RouterID, "vpn")
+	action := "vpn"
+	if j.Network != nil {
+		action = "router"
+	}
+	r, e := s.Router(a, j.RouterID, action)
 	if e != nil {
 		return e
 	}
@@ -256,7 +290,12 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 		return e
 	}
 	if j.Server != nil {
-		if e = openvpn.Preflight(ctx, c, j.Server.Spec); e != nil {
+		if e = protocols.Preflight(ctx, c, j.Server.Spec); e != nil {
+			return e
+		}
+	}
+	if j.Network != nil {
+		if e = s.networkPreflight(ctx, c, *j.Network); e != nil {
 			return e
 		}
 	}
@@ -268,12 +307,21 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 		if e = s.verifyServer(ctx, c, server); e != nil {
 			return e
 		}
-		rows, e := routers.List(ctx, c, "ppp/secret")
+		path := "ppp/secret"
+		if j.User.Protocol == "wireguard" {
+			path = "interface/wireguard/peers"
+		}
+		rows, e := routers.List(ctx, c, path)
 		if e != nil {
 			return e
 		}
+		if j.User.Protocol == "wireguard" {
+			if e = s.verifyWireGuardScope(ctx, c, server, rows); e != nil {
+				return e
+			}
+		}
 		for _, u := range rows {
-			if u["name"] == j.User.Username || u["remote-address"] == j.User.Address {
+			if u["name"] == j.User.Username || u["remote-address"] == j.User.Address || j.User.Protocol == "wireguard" && (u["public-key"] == j.User.PublicKey || strings.Contains(u["allowed-address"], j.User.Address+"/32")) {
 				return errors.New("PPP identity or address changed since preview")
 			}
 		}
@@ -290,11 +338,19 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 }
 
 func (s *Service) verifyServer(ctx context.Context, c routers.API, server domain.Server) error {
-	rows, e := routers.List(ctx, c, "interface/ovpn-server/server")
+	p := protocols.Name(server.Spec)
+	if p == "wireguard" {
+		return s.Engine.VerifyOwned(ctx, c, server.JobID)
+	}
+	path := "interface/ovpn-server/server"
+	if p == "sstp" || p == "l2tp" {
+		path = "interface/" + p + "-server/server"
+	}
+	rows, e := routers.List(ctx, c, path)
 	if e != nil {
 		return e
 	}
-	if len(rows) != 1 || rows[0][".id"] != server.RemoteID {
+	if len(rows) != 1 || p == "openvpn" && rows[0][".id"] != server.RemoteID {
 		return errors.New("OpenVPN server scope changed; manual review required")
 	}
 	secrets, e := routers.List(ctx, c, "ppp/secret")
@@ -305,8 +361,12 @@ func (s *Service) verifyServer(ctx context.Context, c routers.API, server domain
 	if e = s.Repo.List("users", &managed); e != nil {
 		return e
 	}
+	service := p
+	if p == "openvpn" {
+		service = "ovpn"
+	}
 	for _, secret := range secrets {
-		if secret["disabled"] == "yes" || secret["disabled"] == "true" || secret["service"] != "ovpn" && secret["service"] != "any" {
+		if secret["disabled"] == "yes" || secret["disabled"] == "true" || secret["service"] != service && secret["service"] != "any" {
 			continue
 		}
 		known := false
@@ -326,6 +386,9 @@ func (s *Service) UserAction(ctx context.Context, a domain.Account, id, action s
 	var u domain.VPNUser
 	if e := s.Repo.Get("users", id, &u); e != nil {
 		return e
+	}
+	if u.Protocol == "wireguard" {
+		return s.wireGuardAction(ctx, a, u, action)
 	}
 	r, e := s.Router(a, u.RouterID, "vpn")
 	if e != nil {
@@ -373,8 +436,12 @@ func (s *Service) UserAction(ctx context.Context, a domain.Account, id, action s
 	if e != nil {
 		return e
 	}
+	service := u.Protocol
+	if service == "" || service == "openvpn" {
+		service = "ovpn"
+	}
 	for _, row := range rows {
-		if row["name"] == u.Username && row["service"] == "ovpn" {
+		if row["name"] == u.Username && row["service"] == service {
 			if _, e = c.Call(ctx, "DELETE", "ppp/active/"+row[".id"], nil); e != nil {
 				return e
 			}
@@ -385,7 +452,7 @@ func (s *Service) UserAction(ctx context.Context, a domain.Account, id, action s
 		return e
 	}
 	for _, row := range rows {
-		if row["name"] == u.Username && row["service"] == "ovpn" {
+		if row["name"] == u.Username && row["service"] == service {
 			return errors.New("active session remains; review RouterOS")
 		}
 	}
@@ -404,6 +471,12 @@ func (s *Service) Export(ctx context.Context, a domain.Account, userID, passphra
 	}
 	if !s.CanProfile(a, u) || u.Disabled {
 		return nil, errors.New("profile access denied")
+	}
+	if u.Protocol == "wireguard" {
+		return s.exportWireGuard(ctx, a, u)
+	}
+	if u.Protocol != "" && u.Protocol != "openvpn" {
+		return nil, errors.New("this service uses the account credentials, not an OpenVPN profile")
 	}
 	if a.Role == domain.EndUser {
 		return nil, errors.New("ask an authorized VPN operator to regenerate encrypted material")
@@ -427,8 +500,17 @@ func (s *Service) Export(ctx context.Context, a domain.Account, userID, passphra
 	if s.Engine.Blocked(r.ID, "") {
 		return nil, errors.New("router has unresolved operation")
 	}
+	if e := s.Repo.Get("users", userID, &u); e != nil || u.Disabled || !s.CanProfile(a, u) || u.RouterID != r.ID || u.ServerID != server.ID {
+		return nil, errors.New("profile access or ownership changed")
+	}
 	c, e := s.Connect(r)
 	if e != nil {
+		return nil, e
+	}
+	if e = s.verifyServer(ctx, c, server); e != nil {
+		return nil, e
+	}
+	if e = s.Engine.VerifyOwned(ctx, c, u.JobID); e != nil {
 		return nil, e
 	}
 	if e = s.Audit(a.ID, "profile.export", u.ID, "approved"); e != nil {
@@ -514,7 +596,7 @@ func (s *Service) IssueDelivery(a domain.Account, userID string, profile []byte)
 		return "", errors.New("permission denied")
 	}
 	token := security.Token()
-	d := domain.Delivery{ID: security.Digest(token), UserID: userID, AccountID: u.AccountID, Expires: time.Now().Add(5 * time.Minute), Profile: profile}
+	d := domain.Delivery{Protocol: u.Protocol, ID: security.Digest(token), UserID: userID, AccountID: u.AccountID, Expires: time.Now().Add(5 * time.Minute), Profile: profile}
 	return token, s.Repo.Put("deliveries", d.ID, d)
 }
 func (s *Service) Consume(a domain.Account, token string) ([]byte, error) {

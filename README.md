@@ -1,6 +1,8 @@
-# MikroTik VPN Manager 1.0
+# MikroTik VPN Manager 1.1
 
-Linux management panel for MikroTik OpenVPN, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
+Linux management panel for MikroTik VPN services, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
+
+The [1.1.0 changes](docs/releases/1.1.0.md) add separate protocol forms and user menus, WireGuard configuration/QR delivery, colored monitoring graphs and selectable Network & NAT configuration. See [server forms and protocol limitations](docs/operations/vpn-server-forms.md). Panel administrators choose their own password length; empty passwords are rejected.
 
 [v1.0.3 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.0.3), with optional Let's Encrypt HTTPS, automatic renewal and a grouped terminal manager. [Native Ubuntu lifecycle and public installation pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165773); [security/race and both architecture scans pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39178165868).
 

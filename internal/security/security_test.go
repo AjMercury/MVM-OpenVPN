@@ -33,7 +33,14 @@ func TestPassword(t *testing.T) {
 	if !CheckPassword(h, "a very long password 123") || CheckPassword(h, "incorrect password") {
 		t.Fatal("password verification")
 	}
-	if _, e = HashPassword("short"); e == nil {
-		t.Fatal("short password accepted")
+	short, e := HashPassword("1")
+	if e != nil || !CheckPassword(short, "1") || CheckPassword(short, "2") {
+		t.Fatal("user-selected short password was not supported")
+	}
+	if _, e = HashPassword(""); e == nil {
+		t.Fatal("empty password accepted")
+	}
+	if _, e = HashPassword(string(bytes.Repeat([]byte{'a'}, 234))); e == nil {
+		t.Fatal("oversized password accepted")
 	}
 }

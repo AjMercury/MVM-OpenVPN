@@ -168,11 +168,13 @@ func (s *Store) Update(b, id string, fn func([]byte) ([]byte, error)) error {
 	var name, identity, allocation any
 	var projected struct {
 		RouterID string `json:"router_id"`
+		Protocol string `json:"protocol"`
 		Username string `json:"username"`
 		Address  string `json:"address"`
 		Key      string `json:"key"`
 		Spec     struct {
 			RouterID string `json:"router_id"`
+			Protocol string `json:"protocol"`
 		} `json:"spec"`
 	}
 	if e = json.Unmarshal(raw, &projected); e != nil && (b == "users" || b == "jobs" || b == "servers") {
@@ -182,6 +184,9 @@ func (s *Store) Update(b, id string, fn func([]byte) ([]byte, error)) error {
 	case "users":
 		if projected.RouterID != "" && projected.Username != "" {
 			identity = security.Digest(projected.RouterID + ":" + projected.Username)
+			if projected.Protocol == "wireguard" {
+				identity = security.Digest(projected.RouterID + ":wireguard:" + projected.Username)
+			}
 		}
 		if projected.RouterID != "" && projected.Address != "" {
 			allocation = security.Digest(projected.RouterID + ":" + projected.Address)
@@ -193,6 +198,9 @@ func (s *Store) Update(b, id string, fn func([]byte) ([]byte, error)) error {
 	case "servers":
 		if projected.Spec.RouterID != "" {
 			identity = security.Digest(projected.Spec.RouterID)
+			if projected.Spec.Protocol != "" && projected.Spec.Protocol != "openvpn" {
+				identity = security.Digest(projected.Spec.RouterID + ":" + projected.Spec.Protocol)
+			}
 		}
 	}
 	if b == "accounts" {

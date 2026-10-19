@@ -241,6 +241,23 @@ func verticalSlice(t *testing.T, s *Service) {
 	if replacement.User.Address != preview.User.Address {
 		t.Fatal("expired address still reserved")
 	}
+	// Export must reject ownership drift before writing temporary certificate files.
+	secret := m.records["ppp/secret"][0]
+	marker := secret["comment"]
+	secret["comment"] = "external-owner"
+	if _, err := s.Export(ctx, a, user.ID, "long export passphrase"); err == nil {
+		t.Fatal("export accepted changed user ownership")
+	}
+	var exportJobs []domain.Job
+	if err := s.Repo.List("jobs", &exportJobs); err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range exportJobs {
+		if job.Kind == "export" {
+			t.Fatal("export writes started before ownership verification")
+		}
+	}
+	secret["comment"] = marker
 	m.mu.Lock()
 	m.records["ppp/active"] = []routers.Record{{".id": "*FF", "name": "alice", "service": "ovpn"}}
 	m.mu.Unlock()

@@ -31,7 +31,7 @@ func TestSetupAuthorizationAndClosure(t *testing.T) {
 		origin, token string
 		want          int
 	}{{"http://evil.test", token, 403}, {h.App.Config.Origin, "wrong", 403}, {h.App.Config.Origin, token, 303}} {
-		v := url.Values{"token": {tc.token}, "username": {"administrator"}, "password": {"a long secure password"}, "timezone": {"UTC"}, "language": {"fa"}}
+		v := url.Values{"token": {tc.token}, "username": {"administrator"}, "password": {"1"}, "timezone": {"UTC"}, "language": {"fa"}}
 		req := httptest.NewRequest("POST", "/setup", strings.NewReader(v.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Origin", tc.origin)

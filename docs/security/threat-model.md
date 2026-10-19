@@ -4,7 +4,7 @@ Assets include RouterOS credentials, VPN credentials, CA ownership, client priva
 
 ## Implemented controls
 
-* Argon2id: 32 MiB, three iterations, two lanes, random 16-byte salt, 32-byte verifier. Passwords 14–233 bytes. No default credentials. Two concurrent password checks maximum.
+* Argon2id: 32 MiB, three iterations, two lanes, random 16-byte salt, 32-byte verifier. Panel passwords 1–233 bytes; no complexity requirement. No default credentials. Two concurrent password checks maximum.
 * Random 256-bit sessions; token hashes in encrypted database; eight-hour absolute expiry. HttpOnly, SameSite=Strict cookies; Secure on HTTPS. Logout deletes the session. Network access remains HTTPS. Automatic self-signed certificates cover the detected server IPv4 addresses and optional domain; their fingerprint is displayed for trust on first use. Browser trust must be established or a system-trusted certificate supplied. Native plaintext HTTP remains limited to explicit loopback development. Login and CSRF accept only the primary origin and explicitly configured same-scheme IP/domain aliases.
 * Same-origin and synchronizer-token CSRF validation on mutations; login origin validation. Trusted proxies are disabled. Bounded per-IP login attempt map (five attempts/ten minutes). Reverse-proxied deployments currently share the proxy IP throttle; configure an external management access policy. Distributed/account-aware throttling and MFA remain pending.
 * Role checks execute server-side. Router administrator and VPN operator use explicit router IDs; end users only receive their assigned delivery. Read-only auditors cannot mutate. Scopes are reviewed again on each request. Global account management belongs only to super administrators.

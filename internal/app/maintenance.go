@@ -71,6 +71,9 @@ func (s *Service) PurgeExpired() error {
 				if _, ok := step.Values["password"]; ok {
 					hasTerminalSecret = true
 				}
+				if _, ok := step.Values["ipsec-secret"]; ok {
+					hasTerminalSecret = true
+				}
 			}
 		}
 		if !legacyExpired && !hasTerminalSecret && (j.State != "READY" || now.Sub(j.Created) < 15*time.Minute) {

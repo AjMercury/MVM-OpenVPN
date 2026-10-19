@@ -1,6 +1,6 @@
-# Release candidate: 1.2.0
+# Current release: 1.2.0
 
-The simplified panel, shared user identities and router connection tests are described in [1.2.0 release notes](docs/releases/1.2.0.md). Existing users retain their current router authentication scope until explicitly reprovisioned. See [verification](docs/verification.md) for local browser/mock-router evidence and hosted release status.
+The simplified panel, shared user identities and router connection tests are described in [1.2.0 release notes](docs/releases/1.2.0.md). Existing users retain their current router authentication scope until explicitly reprovisioned. [Stable v1.2.0](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.2.0) is published with twelve assets. [Release validation](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39340623067) and [quality/security](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39340623129) pass, including native Ubuntu lifecycle, anonymous public installation and both architecture scans. See [verification](docs/verification.md) for the evidence and remaining real-router limitations.
 
 # Previous published release: 1.1.0
 

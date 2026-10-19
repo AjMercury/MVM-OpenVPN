@@ -6,7 +6,7 @@ The [1.2.0 changes](docs/releases/1.2.0.md) simplify navigation and protocol col
 
 The [1.1.0 changes](docs/releases/1.1.0.md) add separate protocol forms and user menus, WireGuard configuration/QR delivery, colored monitoring graphs and selectable Network & NAT configuration. See [server forms and protocol limitations](docs/operations/vpn-server-forms.md). Panel administrators choose their own password length; empty passwords are rejected.
 
-[v1.1.0 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.1.0), including signed Linux amd64/arm64 archives. [Native Ubuntu lifecycle and public installation pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405193); [security/race and both architecture scans pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405179).
+[v1.2.0 is published](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.2.0), including signed Linux amd64/arm64 archives. [Native Ubuntu lifecycle and public installation pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39340623067); [security/race and both architecture scans pass](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39340623129).
 
 **Release scope:** stable native Linux manager. RouterOS VPN automation remains experimental and disabled by default. Actual router/client interoperability, effective access restrictions and certificate offboarding still require an authorized lab. This release does not certify those workflows for production.
 

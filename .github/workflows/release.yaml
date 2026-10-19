@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 1.27.2
-      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES MVM_LIFECYCLE_VERSION=1.1.0 MVM_LIFECYCLE_NEXT_VERSION=1.1.1 bash tests/systemd/disposable-vm.sh
+      - run: sudo env PATH="$PATH" MVM_DISPOSABLE_LINUX=YES MVM_LIFECYCLE_VERSION=1.2.0 MVM_LIFECYCLE_NEXT_VERSION=1.2.1 bash tests/systemd/disposable-vm.sh
   publish:
     needs: [build, lifecycle]
     runs-on: ubuntu-24.04

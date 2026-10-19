@@ -55,6 +55,8 @@ type Router struct {
 	CA           string    `json:"ca_pem,omitempty"`
 	Group        string    `json:"group"`
 	Status       string    `json:"status"`
+	LastError    string    `json:"last_error,omitempty"`
+	LastAttempt  time.Time `json:"last_attempt"`
 	LastSuccess  time.Time `json:"last_success"`
 	Observed     Snapshot  `json:"observed"`
 	PreviousHash string    `json:"previous_hash"`
@@ -98,18 +100,20 @@ type Server struct {
 	RemoteID    string     `json:"remote_id"`
 }
 type VPNUser struct {
-	Protocol    string `json:"protocol,omitempty"`
-	PublicKey   string `json:"public_key,omitempty"`
-	ID          string `json:"id"`
-	RouterID    string `json:"router_id"`
-	ServerID    string `json:"server_id"`
-	AccountID   string `json:"account_id"`
-	Username    string `json:"username"`
-	Address     string `json:"address"`
-	Certificate string `json:"certificate"`
-	RemoteID    string `json:"remote_id"`
-	JobID       string `json:"job_id"`
-	Disabled    bool   `json:"disabled"`
+	IdentityID    string   `json:"identity_id,omitempty"`
+	SharedServers []string `json:"shared_servers,omitempty"`
+	Protocol      string   `json:"protocol,omitempty"`
+	PublicKey     string   `json:"public_key,omitempty"`
+	ID            string   `json:"id"`
+	RouterID      string   `json:"router_id"`
+	ServerID      string   `json:"server_id"`
+	AccountID     string   `json:"account_id"`
+	Username      string   `json:"username"`
+	Address       string   `json:"address"`
+	Certificate   string   `json:"certificate"`
+	RemoteID      string   `json:"remote_id"`
+	JobID         string   `json:"job_id"`
+	Disabled      bool     `json:"disabled"`
 }
 type Resource struct {
 	Path     string            `json:"path"`

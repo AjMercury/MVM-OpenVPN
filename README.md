@@ -1,6 +1,8 @@
-# MikroTik VPN Manager 1.1
+# MikroTik VPN Manager 1.2
 
 Linux management panel for MikroTik VPN services, with English/Persian UI, scoped roles, encrypted storage, verified RouterOS HTTPS, reviewed provisioning jobs and single-use profile delivery.
+
+The [1.2.0 changes](docs/releases/1.2.0.md) simplify navigation and protocol colors, add one shared user identity across PPP services and WireGuard, and test router connections before and during registration. Existing users are not automatically granted broader protocol access.
 
 The [1.1.0 changes](docs/releases/1.1.0.md) add separate protocol forms and user menus, WireGuard configuration/QR delivery, colored monitoring graphs and selectable Network & NAT configuration. See [server forms and protocol limitations](docs/operations/vpn-server-forms.md). Panel administrators choose their own password length; empty passwords are rejected.
 

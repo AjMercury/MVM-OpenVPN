@@ -31,7 +31,13 @@ Compose uses a non-root scratch application container, read-only root filesystem
 
 Do this independently, with authorized console/WinBox access and a verified backup. **The app does not execute bootstrap commands.** Consult the current MikroTik REST manual for your version. Configure `www-ssl` with a valid management certificate matching the selected hostname/IP and enable HTTPS REST. Restrict the service address and input firewall to the management application host. Disable plaintext management services where appropriate only under separate approval. Sync router NTP/clock.
 
-Create a dedicated RouterOS group/account. Reading needs `read,rest-api`. Provisioning needs `write`; file exports need `ftp`, file reads may also need `test`; private-key exports need `sensitive`. Certificate signing permission requirements must be tested on the chosen release; do not automatically grant `policy`, reboot or full administrative rights. Scope access with the management network and service restrictions; RouterOS policy granularity is limited.
+Create a dedicated RouterOS group/account. Reading needs `read,api,rest-api`. Provisioning needs `write`; file exports need `ftp`, file reads may also need `test`; private-key exports need `sensitive`. Certificate signing permission requirements must be tested on the chosen release; do not automatically grant `policy`, reboot or full administrative rights. Scope access with the management network and service restrictions; RouterOS policy granularity is limited.
+
+The Add Router form can test unsaved connection details without changing RouterOS.
+Saving automatically connects and records the result. A failed connection remains
+visible with its attempt time and diagnostic; it does not claim the router is online.
+Private CA errors can be corrected through the form's Advanced Settings section.
+Router addresses must still be permitted by `MVM_ROUTER_CIDRS` in `/etc/mvm/config.env`.
 
 Add the router with its credentials and the private CA PEM if necessary. Registering only stores inventory. Request a sync, review version/resources and any missing-menu warnings. Do not approve a VPN job until firewall ordering, destination allowlist, return routes, upstream port forwarding/public endpoint, router clock and PKI backup are reviewed. A router behind CGNAT is not made reachable by opening a local listener; arrange a supported public path first.
 

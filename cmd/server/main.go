@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var version = "1.1.0-dev"
+var version = "1.2.0-dev"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))

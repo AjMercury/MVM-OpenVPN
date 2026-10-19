@@ -73,17 +73,20 @@ func (s *Service) Sync(ctx context.Context, a domain.Account, id string) (domain
 	unlock := s.Engine.Lock(id)
 	defer unlock()
 	c, e := s.Connect(r)
-	if e != nil {
-		return r, e
+	r.LastAttempt = time.Now().UTC()
+	var snapshot domain.Snapshot
+	if e == nil {
+		snapshot, e = routers.Discover(ctx, c)
 	}
-	snapshot, e := routers.Discover(ctx, c)
 	if e != nil {
 		r.Status = "offline"
+		r.LastError = e.Error()
 		_ = s.Repo.Put("routers", id, r)
 		_ = s.recordMonitor(ctx, nil, r)
 		return r, e
 	}
 	r.Status = "online"
+	r.LastError = ""
 	if len(snapshot.Warnings) > 0 {
 		r.Status = "degraded"
 	}
@@ -128,6 +131,11 @@ func (s *Service) PrepareServer(ctx context.Context, a domain.Account, spec doma
 	if e = protocols.Preflight(ctx, c, spec); e != nil {
 		return nil, e
 	}
+	if p := protocols.Name(spec); p == "openvpn" || p == "sstp" || p == "l2tp" {
+		if e = s.blockSharedListener(r.ID); e != nil {
+			return nil, e
+		}
+	}
 	var servers []domain.Server
 	if e = s.Repo.List("servers", &servers); e != nil {
 		return nil, e
@@ -154,18 +162,33 @@ func (s *Service) PrepareServer(ctx context.Context, a domain.Account, spec doma
 }
 
 type UserRequest struct {
-	ServerID  string `json:"server_id"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	Address   string `json:"address"`
-	AccountID string `json:"account_id"`
-	Key       string `json:"idempotency_key"`
+	Shared     bool   `json:"shared"`
+	IdentityID string `json:"identity_id"`
+	ServerID   string `json:"server_id"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	Address    string `json:"address"`
+	AccountID  string `json:"account_id"`
+	Key        string `json:"idempotency_key"`
 }
 
 func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequest) (*domain.Job, error) {
 	var server domain.Server
 	if e := s.Repo.Get("servers", in.ServerID, &server); e != nil {
 		return nil, e
+	}
+	if in.Shared && protocols.Name(server.Spec) != "wireguard" {
+		var all []domain.Server
+		if e := s.Repo.List("servers", &all); e != nil {
+			return nil, e
+		}
+		for _, candidate := range all {
+			if candidate.Spec.RouterID == server.Spec.RouterID && protocols.Name(candidate.Spec) == "openvpn" {
+				server = candidate
+				in.ServerID = candidate.ID
+				break
+			}
+		}
 	}
 	if protocols.Name(server.Spec) == "wireguard" {
 		return s.prepareWireGuardUser(ctx, a, server, in)
@@ -195,6 +218,17 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 	if e = s.verifyServer(ctx, c, server); e != nil {
 		return nil, e
 	}
+	identity, e := s.resolveIdentity(a, in, r.ID)
+	if e != nil {
+		return nil, e
+	}
+	var sharedServers []string
+	if in.Shared {
+		sharedServers, e = s.sharedPPPServers(ctx, c, r.ID)
+		if e != nil {
+			return nil, e
+		}
+	}
 	secrets, e := routers.List(ctx, c, "ppp/secret")
 	if e != nil {
 		return nil, e
@@ -216,7 +250,7 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 	for _, u := range users {
 		if u.RouterID == r.ID {
 			used[u.Address] = true
-			if u.Username == in.Username {
+			if u.Username == in.Username && (u.Protocol != "wireguard" || identity == "" || userIdentity(u) != identity) {
 				return nil, errors.New("username is already managed")
 			}
 		}
@@ -224,7 +258,7 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 	for _, j := range allJobs {
 		if j.RouterID == r.ID && j.User != nil && j.State != "ROLLED_BACK" && j.State != "EXPIRED" {
 			used[j.User.Address] = true
-			if j.User.Username == in.Username {
+			if j.User.Username == in.Username && (j.User.Protocol != "wireguard" || identity == "" || userIdentity(*j.User) != identity) {
 				return nil, errors.New("username reserved by another job")
 			}
 		}
@@ -247,11 +281,16 @@ func (s *Service) PrepareUser(ctx context.Context, a domain.Account, in UserRequ
 		return nil, errors.New("address unavailable or outside server pool")
 	}
 	u := domain.VPNUser{Protocol: protocols.Name(server.Spec), RouterID: r.ID, ServerID: server.ID, AccountID: in.AccountID, Username: in.Username, Address: in.Address}
+	u.IdentityID = identity
+	u.SharedServers = sharedServers
 	j := openvpn.UserPlan(ID(), server, u, in.Password)
 	if u.Protocol != "openvpn" {
 		j.Steps = j.Steps[2:]
 		j.User.Certificate = ""
 		j.Steps[0].Values["service"] = u.Protocol
+	}
+	if in.Shared {
+		j.Steps[len(j.Steps)-1].Values["service"] = "any"
 	}
 	j.Actor = a.ID
 	j.Key = in.Key
@@ -290,6 +329,11 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 		return e
 	}
 	if j.Server != nil {
+		if p := protocols.Name(j.Server.Spec); p == "openvpn" || p == "sstp" || p == "l2tp" {
+			if e = s.blockSharedListener(r.ID); e != nil {
+				return e
+			}
+		}
 		if e = protocols.Preflight(ctx, c, j.Server.Spec); e != nil {
 			return e
 		}
@@ -300,12 +344,20 @@ func (s *Service) Apply(ctx context.Context, a domain.Account, id string, confir
 		}
 	}
 	if j.User != nil {
+		if e = s.verifyIdentity(a, *j.User); e != nil {
+			return e
+		}
 		var server domain.Server
 		if e = s.Repo.Get("servers", j.User.ServerID, &server); e != nil {
 			return e
 		}
 		if e = s.verifyServer(ctx, c, server); e != nil {
 			return e
+		}
+		if len(j.User.SharedServers) > 0 {
+			if e = s.verifySharedPPP(ctx, c, *j.User); e != nil {
+				return e
+			}
 		}
 		path := "ppp/secret"
 		if j.User.Protocol == "wireguard" {
@@ -441,7 +493,7 @@ func (s *Service) UserAction(ctx context.Context, a domain.Account, id, action s
 		service = "ovpn"
 	}
 	for _, row := range rows {
-		if row["name"] == u.Username && row["service"] == service {
+		if row["name"] == u.Username && (row["service"] == service || len(u.SharedServers) > 0) {
 			if _, e = c.Call(ctx, "DELETE", "ppp/active/"+row[".id"], nil); e != nil {
 				return e
 			}
@@ -452,7 +504,7 @@ func (s *Service) UserAction(ctx context.Context, a domain.Account, id, action s
 		return e
 	}
 	for _, row := range rows {
-		if row["name"] == u.Username && row["service"] == service {
+		if row["name"] == u.Username && (row["service"] == service || len(u.SharedServers) > 0) {
 			return errors.New("active session remains; review RouterOS")
 		}
 	}
@@ -469,7 +521,7 @@ func (s *Service) Export(ctx context.Context, a domain.Account, userID, passphra
 	if e := s.Repo.Get("users", userID, &u); e != nil {
 		return nil, e
 	}
-	if !s.CanProfile(a, u) || u.Disabled {
+	if !s.CanProfile(a, u) || u.Disabled || !s.identityEnabled(u) {
 		return nil, errors.New("profile access denied")
 	}
 	if u.Protocol == "wireguard" {
@@ -512,6 +564,11 @@ func (s *Service) Export(ctx context.Context, a domain.Account, userID, passphra
 	}
 	if e = s.Engine.VerifyOwned(ctx, c, u.JobID); e != nil {
 		return nil, e
+	}
+	if len(u.SharedServers) > 0 {
+		if e = s.verifySharedPPP(ctx, c, u); e != nil {
+			return nil, e
+		}
 	}
 	if e = s.Audit(a.ID, "profile.export", u.ID, "approved"); e != nil {
 		return nil, e

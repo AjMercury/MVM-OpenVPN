@@ -79,8 +79,8 @@ func TestServiceUserMenusAndWireGuardDownload(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	body := w.Body.String()
-	if w.Code != 200 || !strings.Contains(body, "wireguard-only") || strings.Contains(body, "openvpn-only") || strings.Contains(body, "l2tp-only") || strings.Contains(body, `name="passphrase"`) {
-		t.Fatal("service users or export controls mixed")
+	if w.Code != 200 || !strings.Contains(body, "wireguard-only") || !strings.Contains(body, "openvpn-only") || !strings.Contains(body, "l2tp-only") || !strings.Contains(body, `name="passphrase"`) || strings.Contains(body, "nav-services") {
+		t.Fatal("unified user list or service export controls missing")
 	}
 	token, e := h.App.IssueDelivery(domain.Account{Role: domain.Super}, "wg", []byte("[Interface]\nPrivateKey = test\n"))
 	if e != nil {

@@ -24,6 +24,10 @@ func (s *Service) prepareWireGuardUser(ctx context.Context, a domain.Account, se
 	}
 	unlock := s.Engine.Lock(r.ID)
 	defer unlock()
+	identity, e := s.resolveIdentity(a, in, r.ID)
+	if e != nil {
+		return nil, e
+	}
 	if !openvpn.Identifier.MatchString(in.Username) || len(in.Key) < 8 || len(in.Key) > 128 {
 		return nil, errors.New("invalid peer name or idempotency key")
 	}
@@ -55,6 +59,9 @@ func (s *Service) prepareWireGuardUser(ctx context.Context, a domain.Account, se
 	used := map[string]bool{}
 	for _, u := range users {
 		if u.RouterID == r.ID {
+			if u.Username == in.Username && u.Protocol != "wireguard" && (identity == "" || userIdentity(u) != identity) {
+				return nil, errors.New("this username already exists; add WireGuard from the existing user")
+			}
 			used[u.Address] = true
 			if u.ServerID == server.ID && u.Username == in.Username {
 				return nil, errors.New("peer name is already managed")
@@ -91,6 +98,7 @@ func (s *Service) prepareWireGuardUser(ctx context.Context, a domain.Account, se
 	}
 	id := ID()
 	u := domain.VPNUser{ID: id, JobID: id, Protocol: "wireguard", RouterID: r.ID, ServerID: server.ID, AccountID: in.AccountID, Username: in.Username, Address: in.Address, PublicKey: public}
+	u.IdentityID = identity
 	j := &domain.Job{ID: id, RouterID: r.ID, Actor: a.ID, Kind: "user", Key: in.Key, Fingerprint: security.Digest(jobs.Fingerprint(in)), State: "READY", User: &u, Steps: []domain.Step{{Path: "interface/wireguard/peers", Method: "PUT", Values: map[string]string{"interface": server.Spec.Name, "public-key": public, "allowed-address": in.Address + "/32", "disabled": "no", "comment": "mvm:" + id}}}}
 	// This collection is encrypted by both repositories and never returned by an API.
 	if e = s.Repo.Put("wireguard_keys", id, wireGuardKey{Private: private}); e != nil {
@@ -109,7 +117,7 @@ func (s *Service) exportWireGuard(ctx context.Context, a domain.Account, u domai
 	}
 	unlock := s.Engine.Lock(u.RouterID)
 	defer unlock()
-	if e := s.Repo.Get("users", u.ID, &u); e != nil || u.Disabled || !s.CanProfile(a, u) {
+	if e := s.Repo.Get("users", u.ID, &u); e != nil || u.Disabled || !s.CanProfile(a, u) || !s.identityEnabled(u) {
 		return nil, errors.New("profile unavailable")
 	}
 	var server domain.Server

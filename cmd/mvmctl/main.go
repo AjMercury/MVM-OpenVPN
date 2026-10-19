@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var version = "1.1.0-dev"
+var version = "1.2.0-dev"
 
 func main() {
 	if e := run(); e != nil {

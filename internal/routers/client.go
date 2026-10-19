@@ -32,6 +32,15 @@ type Client struct {
 type APIError struct{ Status int }
 
 func (e *APIError) Error() string {
+	if e.Status == 401 {
+		return "router authentication failed; check username, password and api/rest-api policies"
+	}
+	if e.Status == 403 {
+		return "router access denied; check user policies and service address restrictions"
+	}
+	if e.Status == 404 {
+		return "REST endpoint not found; check RouterOS 7 and the www-ssl port"
+	}
 	return fmt.Sprintf("RouterOS rejected request (HTTP %d); inspect router permissions and configuration", e.Status)
 }
 func ValidHost(host string) bool {
@@ -133,7 +142,26 @@ func (c *Client) Call(ctx context.Context, method, path string, body any) ([]Rec
 		if errors.Is(e, context.DeadlineExceeded) {
 			return nil, errors.New("router request timed out; mutation outcome may be uncertain")
 		}
-		return nil, errors.New("router transport failed; check DNS, connectivity and verified TLS")
+		var unknown x509.UnknownAuthorityError
+		var hostname x509.HostnameError
+		var invalid x509.CertificateInvalidError
+		var dns *net.DNSError
+		switch {
+		case errors.As(e, &unknown):
+			return nil, errors.New("TLS certificate is not trusted; supply the router CA PEM")
+		case errors.As(e, &hostname):
+			return nil, errors.New("TLS certificate does not match the router IP or hostname")
+		case errors.As(e, &invalid):
+			return nil, errors.New("TLS certificate is expired or invalid; check certificates and clocks")
+		case errors.As(e, &dns), strings.Contains(e.Error(), "DNS resolution failed"):
+			return nil, errors.New("router DNS resolution failed")
+		case strings.Contains(e.Error(), "MVM_ROUTER_CIDRS"):
+			return nil, errors.New("router destination is outside MVM_ROUTER_CIDRS")
+		case strings.Contains(e.Error(), "destination is forbidden"):
+			return nil, errors.New("router destination is forbidden")
+		default:
+			return nil, errors.New("router is unreachable; check www-ssl port, firewall and routing")
+		}
 	}
 	defer resp.Body.Close()
 	data, e := io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024+1))

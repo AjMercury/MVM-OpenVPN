@@ -23,10 +23,18 @@ and a QR containing the actual WireGuard configuration. Downloads remain
 authenticated, single-use and valid for five minutes. A scanned configuration
 is a credential and remains usable until its peer is disabled.
 
-User menus and creation forms are separated by service. OpenVPN exports an
+Users now share one menu and may have multiple service bindings under a single
+identity. New shared PPP users use one username/password and PPP profile for the
+managed OpenVPN, SSTP and L2TP listeners on the same router. When OpenVPN exists,
+its pool and access policy are primary. Create the desired PPP servers before
+shared users; provisioning another PPP listener while shared users are active is
+blocked to prevent an unreviewed authentication expansion. PPTP and PPPoE must be
+disabled and observable. WireGuard is added through the existing user's Add
+Service action and retains a distinct private key/IP. Existing users are not
+automatically converted. OpenVPN exports an
 inline `.ovpn` file with encrypted client key material; SSTP and L2TP/IPsec use
 their PPP credentials. PPP identities still share RouterOS's username namespace;
-WireGuard has a separate namespace. Each protocol has its own server identity
+WireGuard has a separate router namespace but can share the panel identity. Each protocol has its own server identity
 in SQLite while legacy OpenVPN records retain their original uniqueness rule.
 
 IKEv2 currently provisions server infrastructure only. Its identity deliberately remains disabled until client

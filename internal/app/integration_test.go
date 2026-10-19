@@ -241,6 +241,7 @@ func verticalSlice(t *testing.T, s *Service) {
 	if replacement.User.Address != preview.User.Address {
 		t.Fatal("expired address still reserved")
 	}
+	testSharedIdentity(t, s, m, ctx, a, server)
 	// Export must reject ownership drift before writing temporary certificate files.
 	secret := m.records["ppp/secret"][0]
 	marker := secret["comment"]
@@ -268,5 +269,114 @@ func verticalSlice(t *testing.T, s *Service) {
 	defer m.mu.Unlock()
 	if len(m.records["ppp/active"]) != 0 || m.records["ppp/secret"][0]["disabled"] != "yes" {
 		t.Fatal("disable/disconnect failed")
+	}
+}
+
+func testSharedIdentity(t *testing.T, s *Service, m *mockREST, ctx context.Context, a domain.Account, primary domain.Server) {
+	t.Helper()
+	// The second listener is an observed managed fixture; the shared user's
+	// certificate, secret and WireGuard enrollment run through real job steps.
+	second := domain.Server{ID: "shared-sstp", JobID: "shared-sstp", Spec: domain.ServerSpec{RouterID: "r", Protocol: "sstp"}}
+	second.Spec.InputAnchor = primary.Spec.InputAnchor
+	second.Spec.ForwardAnchor = primary.Spec.ForwardAnchor
+	if err := s.Repo.Put("servers", second.ID, second); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Repo.Put("jobs", second.ID, domain.Job{ID: second.ID, RouterID: "r", State: "COMPLETED", Server: &second}); err != nil {
+		t.Fatal(err)
+	}
+	m.records["interface/sstp-server/server"] = []routers.Record{{"enabled": "yes"}}
+	m.records["interface/l2tp-server/server"] = []routers.Record{{"enabled": "no"}}
+	m.records["interface/pptp-server/server"] = []routers.Record{{"enabled": "no"}}
+	m.records["interface/pppoe-server/server"] = []routers.Record{}
+	shared, err := s.PrepareUser(ctx, a, UserRequest{ServerID: second.ID, Shared: true, Username: "shared-user", Password: "shared test password 123", Key: "shared-user-preview"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if shared.User.ServerID != primary.ID || len(shared.User.SharedServers) != 2 || shared.Steps[len(shared.Steps)-1].Values["service"] != "any" {
+		t.Fatal("PPP identity was not shared using primary OpenVPN policy")
+	}
+	m.records["interface/pptp-server/server"][0]["enabled"] = "yes"
+	count := len(m.records["ppp/secret"])
+	if err = s.Apply(ctx, a, shared.ID, true); err == nil {
+		t.Fatal("shared credential authorized unmanaged PPTP")
+	}
+	if len(m.records["ppp/secret"]) != count {
+		t.Fatal("rejected shared preview mutated router")
+	}
+	m.records["interface/pptp-server/server"][0]["enabled"] = "no"
+	if err = s.Apply(ctx, a, shared.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	row := m.records["ppp/secret"][len(m.records["ppp/secret"])-1]
+	if row["name"] != "shared-user" || row["service"] != "any" || row["profile"] != primary.Profile {
+		t.Fatal("wrong shared PPP scope")
+	}
+	spec := primary.Spec
+	m.records["interface/wireguard"] = []routers.Record{}
+	m.records["interface/wireguard/peers"] = []routers.Record{}
+	spec.Protocol = "wireguard"
+	spec.Name = "shared-wg"
+	spec.Port = 51820
+	spec.Transport = "udp"
+	spec.Subnet = "10.90.0.0/24"
+	spec.Gateway = "10.90.0.1"
+	spec.Start = "10.90.0.10"
+	spec.End = "10.90.0.200"
+	for _, chain := range []string{"input", "forward"} {
+		for _, rule := range m.records["ip/firewall/filter"] {
+			if rule["chain"] == chain {
+				if chain == "input" {
+					spec.InputAnchor = rule[".id"]
+				} else {
+					spec.ForwardAnchor = rule[".id"]
+				}
+				break
+			}
+		}
+	}
+	wg, err := s.PrepareServer(ctx, a, spec, "shared-wg-server")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Apply(ctx, a, wg.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	peer, err := s.PrepareUser(ctx, a, UserRequest{ServerID: wg.ID, IdentityID: shared.ID, Username: "shared-user", Key: "shared-wg-user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Apply(ctx, a, peer.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	var users []domain.VPNUser
+	var servers []domain.Server
+	if err = s.Repo.List("users", &users); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Repo.List("servers", &servers); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, group := range GroupUsers(users, servers) {
+		if group.ID == shared.ID {
+			found = true
+			if len(group.Bindings) != 2 {
+				t.Fatal("WireGuard not linked to shared identity")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("shared identity missing")
+	}
+	if _, err = s.PrepareUser(ctx, a, UserRequest{ServerID: wg.ID, IdentityID: shared.ID, Username: "wrong-name", Key: "invalid-link-preview"}); err == nil {
+		t.Fatal("identity username substitution accepted")
+	}
+	m.records["ppp/active"] = []routers.Record{{".id": "*S1", "name": "shared-user", "service": "ovpn"}, {".id": "*S2", "name": "shared-user", "service": "sstp"}}
+	if err = s.IdentityAction(ctx, a, shared.ID, "disable"); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.records["ppp/active"]) != 0 || row["disabled"] != "yes" || m.records["interface/wireguard/peers"][0]["disabled"] != "yes" {
+		t.Fatal("shared identity disable did not cover all services")
 	}
 }

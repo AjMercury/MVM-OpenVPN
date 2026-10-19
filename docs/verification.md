@@ -1,3 +1,9 @@
+# 1.2.0 local verification (2026-10-20)
+
+Full Go tests, vet, formatting, manifest checks and onboarding JavaScript syntax pass locally. New mock-router coverage on SQLite and bbolt verifies shared PPP credentials and primary address policy, rejection of unmanaged PPP listeners between preview/apply, WireGuard identity linking, grouped disable/disconnect and owner/name/router boundaries. Disabled parent identities block pending enrollment and exports. HTTP tests verify unsaved connection probes do not register routers, saving automatically attempts a connection, failed status/error/time are preserved, credentials are not returned and non-administrators cannot probe arbitrary destinations.
+
+Browser checks with local test data verify Persian shared-user rows and service colors, simplified navigation, inline connection success, localized invalid-address failure with form preservation, and hiding PPP password fields for WireGuard. These are UI and simulated-router results, not a real RouterOS connectivity or VPN client test.
+
 # 1.1.0 local audit (2026-10-20)
 
 [v1.1.0](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.1.0) is published from `ed41aff6719033f61fa2e6666cf9a92e693817eb`. [Release run 39336405193](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405193) passes both native builds, vulnerability checks, Ubuntu installation/repair/update/rollback/uninstall, attested publication and anonymous public installation. [Tag quality run 39336405179](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405179) passes race tests, vulnerability/secret checks and amd64/arm64 container scans. The stable non-draft release contains twelve assets including archives, SBOMs, checksum manifest and Sigstore bundle. The local limitations below are superseded by hosted results for the checks executed in CI.

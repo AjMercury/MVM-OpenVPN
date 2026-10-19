@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MikroTik VPN Manager internal API
-  version: 0.1.0
+  version: 1.2.0
   description: >-
     Development preview. Cookie authentication, exact Origin and X-CSRF-Token are required
     on all API mutations. Browser forms may submit csrf as a form field. JSON responses
@@ -72,8 +72,38 @@ paths:
                 ca_pem: {type: string, description: Optional PEM trust anchor}
                 group: {type: string}
       responses:
-        '200': {description: Inventory created; no router contact}
+        '200': {description: Inventory created and read-only connection attempted; inspect status, last_error and last_attempt. Credentials and CA omitted.}
         '400': {$ref: '#/components/responses/Error'}
+  /api/v1/routers/test:
+    post:
+      description: Super administrator only. Read-only connection test; no router or inventory writes.
+      requestBody:
+        $ref: '#/paths/~1api~1v1~1routers/post/requestBody'
+      responses:
+        '200': {description: Verified connection and observed capabilities; credentials and CA omitted}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/vpn/identities/{id}/{action}:
+    parameters:
+      - $ref: '#/components/parameters/ID'
+      - in: path
+        name: action
+        required: true
+        schema: {type: string, enum: [disable, disconnect]}
+    post:
+      description: Attempts the action for every linked service; any incomplete action is reported. Router VPN permission required for all bindings.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: {type: string, enum: ['yes']}
+      responses:
+        '200': {description: All applicable linked services processed}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
   /api/v1/routers/{id}:
     parameters: [{$ref: '#/components/parameters/ID'}]
     delete:
@@ -121,13 +151,15 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [server_id, username, password, idempotency_key]
+              required: [server_id, username, idempotency_key]
               properties:
                 server_id: {type: string}
                 username: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,26}$'}
                 password: {type: string, minLength: 14, maxLength: 233, format: password}
                 address: {type: string, description: Optional static address; otherwise next free address is reserved}
                 account_id: {type: string, description: Optional separate end-user account owner}
+                shared: {type: boolean, default: false, description: Share one PPP credential across all managed PPP listeners on this router; uses the OpenVPN pool/profile when available}
+                identity_id: {type: string, description: Existing user identity to link; router, username and portal owner must match}
                 idempotency_key: {type: string, minLength: 8, maxLength: 128}
       responses:
         '200': {description: Persisted READY user job; password redacted in response}

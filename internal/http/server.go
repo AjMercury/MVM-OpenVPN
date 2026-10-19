@@ -109,6 +109,8 @@ func (h *Server) Routes() *gin.Engine {
 	api.GET("/monitoring", h.monitoringData)
 	api.POST("/network/preview", h.prepareNetwork)
 	api.POST("/routers", h.addRouter)
+	api.POST("/routers/test", h.testRouter)
+	api.POST("/vpn/identities/:id/:action", h.identityAction)
 	api.POST("/routers/:id/sync", h.syncRouter)
 	api.DELETE("/routers/:id", h.removeRouter)
 	api.GET("/routers/:id/capabilities", h.capabilities)
@@ -465,25 +467,43 @@ func (h *Server) page(c *gin.Context) {
 	data["Servers"] = visibleServers
 	clientServers := []domain.Server{}
 	for _, server := range visibleServers {
-		if protocols.Name(server.Spec) == protocol && protocol != "ikev2" {
+		if protocols.Name(server.Spec) != "ikev2" {
 			clientServers = append(clientServers, server)
 		}
 	}
 	data["ClientServers"] = clientServers
 	data["Users"] = visibleUsers
-	if page == "users" || page == "new-user" {
-		filtered := []domain.VPNUser{}
+	data["UserIdentities"] = app.GroupUsers(visibleUsers, visibleServers)
+	if page == "new-user" && c.Query("identity_id") != "" {
+		var identity domain.VPNUser
 		for _, u := range visibleUsers {
-			p := u.Protocol
-			if p == "" {
-				p = "openvpn"
-			}
-			if p == protocol {
-				filtered = append(filtered, u)
+			if u.ID == c.Query("identity_id") {
+				identity = u
+				break
 			}
 		}
-		data["Users"] = filtered
+		if identity.ID == "" || !a.Can("vpn", identity.RouterID) || identity.Disabled {
+			h.fail(c, 404, errors.New("shared identity unavailable"))
+			return
+		}
+		data["Identity"] = identity
+		linked := []domain.Server{}
+		for _, group := range app.GroupUsers(visibleUsers, visibleServers) {
+			if group.ID == identity.ID || group.ID == identity.IdentityID {
+				linked = group.AvailableServers
+				break
+			}
+		}
+		clientServers = linked
 	}
+	sort.Slice(clientServers, func(i, j int) bool {
+		pi, pj := protocols.Name(clientServers[i].Spec), protocols.Name(clientServers[j].Spec)
+		if pi != pj {
+			return pi < pj
+		}
+		return clientServers[i].Spec.Name < clientServers[j].Spec.Name
+	})
+	data["ClientServers"] = clientServers
 	data["Jobs"] = visibleJobs
 	states := map[string]int{}
 	for _, j := range visibleJobs {
@@ -663,6 +683,45 @@ func (h *Server) routerList(c *gin.Context) {
 	c.JSON(200, gin.H{"items": out})
 }
 func (h *Server) addRouter(c *gin.Context) {
+	r, e := readRouter(c)
+	if e != nil {
+		h.fail(c, 400, e)
+		return
+	}
+	r, e = h.App.AddRouter(account(c), r)
+	if e != nil {
+		h.fail(c, 400, e)
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	r, e = h.App.Sync(ctx, account(c), r.ID)
+	r.Password = ""
+	r.CA = ""
+	if e != nil && r.LastError == "" {
+		h.fail(c, 500, e)
+		return
+	}
+	h.success(c, r, "/?page=router&id="+r.ID)
+}
+func (h *Server) testRouter(c *gin.Context) {
+	r, e := readRouter(c)
+	if e != nil {
+		h.fail(c, 400, e)
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	r, e = h.App.ProbeRouter(ctx, account(c), r)
+	if e != nil {
+		h.fail(c, 400, e)
+		return
+	}
+	r.Password = ""
+	r.CA = ""
+	c.JSON(200, r)
+}
+func readRouter(c *gin.Context) (domain.Router, error) {
 	var r domain.Router
 	if strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
 		var in struct {
@@ -675,22 +734,14 @@ func (h *Server) addRouter(c *gin.Context) {
 			Group    string `json:"group"`
 		}
 		if e := decode(c, &in); e != nil {
-			h.fail(c, 400, e)
-			return
+			return r, e
 		}
 		r = domain.Router{Name: in.Name, Host: in.Host, Port: in.Port, Username: in.Username, Password: in.Password, CA: in.CA, Group: in.Group}
 	} else {
 		r = domain.Router{Name: c.PostForm("name"), Host: c.PostForm("host"), Username: c.PostForm("username"), Password: c.PostForm("password"), CA: c.PostForm("ca_pem"), Group: c.PostForm("group")}
 		r.Port, _ = strconv.Atoi(c.PostForm("port"))
 	}
-	r, e := h.App.AddRouter(account(c), r)
-	if e != nil {
-		h.fail(c, 400, e)
-		return
-	}
-	r.Password = ""
-	r.CA = ""
-	h.success(c, r, "/?page=routers")
+	return r, nil
 }
 func (h *Server) syncRouter(c *gin.Context) {
 	r, e := h.App.Sync(c.Request.Context(), account(c), c.Param("id"))
@@ -814,6 +865,8 @@ func (h *Server) prepareUser(c *gin.Context) {
 		}
 	} else {
 		in = app.UserRequest{ServerID: c.PostForm("server_id"), Username: c.PostForm("username"), Password: c.PostForm("password"), Address: c.PostForm("address"), AccountID: c.PostForm("account_id"), Key: c.PostForm("idempotency_key")}
+		in.Shared = c.PostForm("shared") == "yes"
+		in.IdentityID = c.PostForm("identity_id")
 	}
 	j, e := h.App.PrepareUser(c.Request.Context(), account(c), in)
 	if e != nil {
@@ -821,6 +874,17 @@ func (h *Server) prepareUser(c *gin.Context) {
 		return
 	}
 	h.success(c, redactJob(*j), "/?page=job&id="+j.ID)
+}
+func (h *Server) identityAction(c *gin.Context) {
+	if c.PostForm("confirm") != "yes" {
+		h.fail(c, 400, errors.New("explicit confirmation required"))
+		return
+	}
+	if e := h.App.IdentityAction(c.Request.Context(), account(c), c.Param("id"), c.Param("action")); e != nil {
+		h.fail(c, 409, e)
+		return
+	}
+	h.success(c, gin.H{"ok": true}, "/?page=users")
 }
 func (h *Server) apply(c *gin.Context) {
 	var in struct {

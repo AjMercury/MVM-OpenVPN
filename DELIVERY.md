@@ -1,4 +1,8 @@
-# Current release: 1.1.0
+# Release candidate: 1.2.0
+
+The simplified panel, shared user identities and router connection tests are described in [1.2.0 release notes](docs/releases/1.2.0.md). Existing users retain their current router authentication scope until explicitly reprovisioned. See [verification](docs/verification.md) for local browser/mock-router evidence and hosted release status.
+
+# Previous published release: 1.1.0
 
 See [1.1.0 release notes](docs/releases/1.1.0.md) for protocol forms, WireGuard delivery, monitoring, Network & NAT, password selection and audit fixes. [Release validation](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405193) and [quality/security checks](https://github.com/AjMercury/MVM-OpenVPN/actions/runs/39336405179) pass, including native Ubuntu lifecycle, anonymous public installation, race tests and both architecture scans. [Stable v1.1.0](https://github.com/AjMercury/MVM-OpenVPN/releases/tag/v1.1.0) contains twelve signed/checksummed release assets. Real RouterOS/client interoperability remains unverified.
 
